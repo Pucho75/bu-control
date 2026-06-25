@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+{% block title %}Guida Utente{% endblock %}
+{% block page_title %}Guida — BioPlasticizers Desk{% endblock %}
+{% block head %}
+<style>
+.guide-card{background:var(--surface);border:1px solid var(--border);border-radius:6px;margin-bottom:20px;overflow:hidden}
+.guide-card-header{padding:12px 20px;background:var(--surface-2);border-bottom:1px solid var(--border);font-weight:600;font-size:13px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-secondary)}
+.guide-card-body{padding:20px}
+.guide-card-body p{margin:0 0 12px;font-size:14px;line-height:1.6}
+.guide-steps{counter-reset:step;list-style:none;padding:0;margin:0}
+.guide-steps li{counter-increment:step;display:flex;gap:14px;margin-bottom:14px;font-size:14px;line-height:1.5}
+.guide-steps li::before{content:counter(step);min-width:24px;height:24px;border-radius:50%;background:var(--green);color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;flex-shrink:0;margin-top:2px}
+.guide-note{background:var(--amber);color:#1a1917;padding:10px 14px;border-radius:4px;font-size:13px;margin-top:12px}
+.guide-tip{background:var(--surface-2);border-left:3px solid var(--green);padding:10px 14px;font-size:13px;margin-top:12px;color:var(--text-secondary)}
+.guide-tabs{display:flex;gap:8px;margin-bottom:24px;flex-wrap:wrap}
+.guide-tab{padding:6px 16px;border-radius:4px;border:1px solid var(--border);background:var(--surface-2);cursor:pointer;font-size:13px;font-family:var(--font-mono);color:var(--text-secondary);text-decoration:none}
+.guide-tab.active,.guide-tab:hover{background:var(--green);color:#fff;border-color:var(--green)}
+.guide-section{display:none}
+.guide-section.active{display:block}
+</style>
+{% endblock %}
+{% block main_content %}
+{% if current_role == "CEO" %}
+<div class="guide-tabs">
+  <a class="guide-tab active" onclick="return showTab('paolo',this)" href="#">Paolo</a>
+  <a class="guide-tab" onclick="return showTab('luca',this)" href="#">Luca</a>
+  <a class="guide-tab" onclick="return showTab('barbara',this)" href="#">Barbara</a>
+  <a class="guide-tab" onclick="return showTab('ganna',this)" href="#">Ganna/Raquel</a>
+</div>
+<div class="guide-section active" id="tab-paolo">
+  <div class="guide-card"><div class="guide-card-header">Panoramica</div><div class="guide-card-body">
+    <p>BioPlasticizers Desk e il sistema operativo della BU BPL. Monitora posizione aperta, margini e valore magazzino. Hai accesso completo.</p>
+  </div></div>
+  <div class="guide-card"><div class="guide-card-header">Dashboard</div><div class="guide-card-body">
+    <p>Posizione per prodotto: MT in transito, porto, magazzino, impegnate, consegnate. Margin YTD mostra margine anno. Storage Balances mostra giacenze per deposito.</p>
+  </div></div>
+  <div class="guide-card"><div class="guide-card-header">Lots & Margin / St. Value</div><div class="guide-card-body">
+    <p>Lots & Margin: dettaglio per lotto con margine realizzato e carrying value. St. Value: valore di carico per deposito e prodotto.</p>
+  </div></div>
+  <div class="guide-card"><div class="guide-card-header">Correzione errori</div><div class="guide-card-body">
+    <ol class="guide-steps">
+      <li>DDT errato: Sales Pipeline, Clear DDT.</li>
+      <li>ODV errato: Sales Pipeline, Delete.</li>
+      <li>B/L errato: ODA Status, dettaglio ODA, Delete B/L.</li>
+      <li>ODA errato: ODA Status, dettaglio ODA, Delete ODA.</li>
+    </ol>
+    <div class="guide-note">Non puoi cancellare container con lotti assegnati. Prima Clear DDT.</div>
+  </div></div>
+</div>
+<div class="guide-section" id="tab-luca">
+  <div class="guide-card"><div class="guide-card-header">Ruolo</div><div class="guide-card-body">
+    <p>Responsabile commerciale. Inserisci ODV e monitora la posizione.</p>
+  </div></div>
+  <div class="guide-card"><div class="guide-card-header">Caricare un ODV</div><div class="guide-card-body">
+    <ol class="guide-steps">
+      <li>Menu: Outbound, ODV</li>
+      <li>Carica il PDF della conferma d'ordine</li>
+      <li>Verifica cliente, prodotti, quantita, prezzi</li>
+      <li>Confirm & Save ODV</li>
+    </ol>
+  </div></div>
+  <div class="guide-card"><div class="guide-card-header">Costi standard (DEL_COSTS)</div><div class="guide-card-body">
+    <ol class="guide-steps">
+      <li>Settings, Scarica Template</li>
+      <li>Compila foglio DEL_COSTS</li>
+      <li>Ricarica in Settings, Import</li>
+    </ol>
+    <div class="guide-note">Valid From in formato YYYY-MM-DD obbligatorio.</div>
+  </div></div>
+</div>
+<div class="guide-section" id="tab-barbara">
+  <div class="guide-card"><div class="guide-card-header">Ruolo</div><div class="guide-card-body">
+    <p>Gestisci ODA, B/L, COA, sdoganamento, arrivi e DDT vendita.</p>
+  </div></div>
+  <div class="guide-card"><div class="guide-card-header">ODA</div><div class="guide-card-body">
+    <ol class="guide-steps"><li>Import, ODA</li><li>Carica PDF</li><li>Verifica e Confirm</li></ol>
+  </div></div>
+  <div class="guide-card"><div class="guide-card-header">B/L</div><div class="guide-card-body">
+    <ol class="guide-steps"><li>Import, B/L</li><li>Carica PDF</li><li>Collega ODA</li><li>Confirm — container IN_TRANSIT</li></ol>
+  </div></div>
+  <div class="guide-card"><div class="guide-card-header">Sdoganamento</div><div class="guide-card-body">
+    <ol class="guide-steps"><li>Operations, Customs</li><li>Seleziona container</li><li>Data, deposito, costo doganale</li><li>Record Clearance — IN_STORAGE</li></ol>
+    <div class="guide-tip">Costo diviso equamente tra container selezionati.</div>
+  </div></div>
+  <div class="guide-card"><div class="guide-card-header">DDT Vendita</div><div class="guide-card-body">
+    <ol class="guide-steps"><li>Outbound, DDT Sales</li><li>Carica PDF</li><li>Verifica MT e lotti per prodotto</li><li>Inserisci trasporto e vettore</li><li>Confirm & Mark EXECUTED</li></ol>
+  </div></div>
+  <div class="guide-card"><div class="guide-card-header">Pending</div><div class="guide-card-body">
+    <p>Tieni a zero: movimenti senza costo e vendite senza DDT.</p>
+  </div></div>
+</div>
+<div class="guide-section" id="tab-ganna">
+  <div class="guide-card"><div class="guide-card-header">Ruolo</div><div class="guide-card-body">
+    <p>Aggiorna ETA container e registra arrivi.</p>
+  </div></div>
+  <div class="guide-card"><div class="guide-card-header">ETA</div><div class="guide-card-body">
+    <ol class="guide-steps"><li>Containers</li><li>Clicca sul campo ETA nella tabella In Transit</li><li>Enter per salvare, Esc per annullare</li></ol>
+    <div class="guide-tip">Rosso = scaduta. Arancione = entro 5 giorni.</div>
+  </div></div>
+  <div class="guide-card"><div class="guide-card-header">Arrivi</div><div class="guide-card-body">
+    <ol class="guide-steps"><li>Operations, Arrival</li><li>Seleziona nave</li><li>Conferma ATA — container IN_PORT</li></ol>
+  </div></div>
+</div>
+{% block scripts %}<script>
+function showTab(n,el){document.querySelectorAll(".guide-section").forEach(s=>s.classList.remove("active"));document.querySelectorAll(".guide-tab").forEach(t=>t.classList.remove("active"));document.getElementById("tab-"+n).classList.add("active");el.classList.add("active");return false;}
+</script>{% endblock %}
+{% elif current_role == "BU_DIRECTOR" %}
+  <div class="guide-card"><div class="guide-card-header">Il tuo ruolo</div><div class="guide-card-body">
+    <p>Responsabile commerciale della BU. Inserisci le vendite e monitora la posizione.</p>
+  </div></div>
+  <div class="guide-card"><div class="guide-card-header">Caricare un ODV</div><div class="guide-card-body">
+    <ol class="guide-steps">
+      <li>Menu: Outbound, ODV</li>
+      <li>Carica il PDF della conferma d'ordine</li>
+      <li>Verifica cliente, prodotti, quantita, prezzi, incoterm</li>
+      <li>Confirm & Save ODV</li>
+    </ol>
+    <div class="guide-tip">Se il cliente non viene trovato, selezionalo dal menu.</div>
+  </div></div>
+  <div class="guide-card"><div class="guide-card-header">Stato delle vendite</div><div class="guide-card-body">
+    <p>Sales Pipeline: PROVISIONAL (ODV inserito), INSTRUCTED (istruzioni date a logistica), EXECUTED (DDT caricato), INVOICED (fatturato).</p>
+  </div></div>
+  <div class="guide-card"><div class="guide-card-header">Costi standard (DEL_COSTS)</div><div class="guide-card-body">
+    <ol class="guide-steps">
+      <li>Settings, Scarica Template</li>
+      <li>Compila foglio DEL_COSTS con commissioni, log_in, stoccaggio, dazio, log_ita</li>
+      <li>Ricarica in Settings, Import</li>
+    </ol>
+    <div class="guide-note">Valid From obbligatorio in formato YYYY-MM-DD.</div>
+  </div></div>
+{% elif current_role == "LOGISTICS_ADMIN" %}
+  <div class="guide-card"><div class="guide-card-header">Il tuo ruolo</div><div class="guide-card-body">
+    <p>Gestisci tutta l'operativita: ODA, B/L, COA, sdoganamento, arrivi e DDT di vendita.</p>
+  </div></div>
+  <div class="guide-card"><div class="guide-card-header">Caricare un ODA</div><div class="guide-card-body">
+    <ol class="guide-steps"><li>Import, ODA</li><li>Carica PDF ordine acquisto</li><li>Verifica fornitore, prodotto, quantita, incoterm</li><li>Confirm & Save ODA</li></ol>
+  </div></div>
+  <div class="guide-card"><div class="guide-card-header">Caricare un B/L</div><div class="guide-card-body">
+    <ol class="guide-steps"><li>Import, B/L</li><li>Carica PDF polizza di carico</li><li>Collega all'ODA corretto</li><li>Confirm — container IN_TRANSIT</li></ol>
+  </div></div>
+  <div class="guide-card"><div class="guide-card-header">Sdoganamento</div><div class="guide-card-body">
+    <ol class="guide-steps"><li>Operations, Customs</li><li>Seleziona container</li><li>Data, deposito, costo doganale totale</li><li>Record Clearance — IN_STORAGE</li></ol>
+    <div class="guide-tip">Il costo viene diviso equamente tra i container selezionati.</div>
+  </div></div>
+  <div class="guide-card"><div class="guide-card-header">DDT di Vendita</div><div class="guide-card-body">
+    <ol class="guide-steps"><li>Outbound, DDT Sales</li><li>Carica PDF DDT</li><li>Verifica MT e lotti per ogni prodotto</li><li>Inserisci costo trasporto e vettore</li><li>Confirm & Mark EXECUTED</li></ol>
+  </div></div>
+  <div class="guide-card"><div class="guide-card-header">Pending</div><div class="guide-card-body">
+    <p>Tieni a zero ogni giorno: movimenti senza costo e vendite in attesa di DDT.</p>
+  </div></div>
+{% else %}
+  <div class="guide-card"><div class="guide-card-header">Il tuo ruolo</div><div class="guide-card-body">
+    <p>Aggiorna le ETA dei container e registra gli arrivi.</p>
+  </div></div>
+  <div class="guide-card"><div class="guide-card-header">Aggiornare le ETA</div><div class="guide-card-body">
+    <ol class="guide-steps"><li>Menu: Containers</li><li>Clicca sull'ETA nella tabella In Transit</li><li>Enter per salvare, Esc per annullare</li></ol>
+    <div class="guide-tip">Rosso = gia scaduta. Arancione = entro 5 giorni.</div>
+  </div></div>
+  <div class="guide-card"><div class="guide-card-header">Registrare un Arrivo</div><div class="guide-card-body">
+    <ol class="guide-steps"><li>Operations, Arrival</li><li>Seleziona nave arrivata</li><li>Conferma data ATA</li><li>Container passano a IN_PORT</li></ol>
+  </div></div>
+{% endif %}
+{% endblock %}

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{% block title %}BU Control{% endblock %} — Trading Operations</title>
+  <title>{% block title %}BioPlasticizers Desk{% endblock %} — Chimitrade</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
@@ -19,7 +19,7 @@
   <nav class="sidebar">
     <div class="sidebar-header">
       <span class="logo-mark">▣</span>
-      <span class="logo-text">BU Control</span>
+      <span class="logo-text">BioPlasticizers Desk</span>
     </div>
 
     <div class="sidebar-role">
@@ -149,6 +149,7 @@
       {% if current_role in ['CEO', 'LOGISTICS_ADMIN'] %}
       <a href="{{ url_for('admin.settings') }}" class="logout-link" style="margin-bottom:8px;display:block">⚙ Settings</a>
       {% endif %}
+      <a href="{{ url_for('guida') }}" class="logout-link" style="margin-bottom:8px;display:block">? Guida</a>
       <a href="{{ url_for('logout') }}" class="logout-link">← logout</a>
       <div style="margin-top:10px;font-size:10px;color:var(--text-secondary);font-family:var(--font-mono)">v{{ app_version }}</div>
     </div>

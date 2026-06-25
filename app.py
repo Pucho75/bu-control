@@ -48,7 +48,7 @@ DB_PATH = os.environ.get("DB_PATH", os.path.join(os.path.dirname(__file__), "db"
 # ── Role definitions ─────────────────────────────────────────
 ROLES = {
     "CEO":               {"label": "CEO",              "sees_prices": True,  "sees_margins": True,  "can_enter_sales": True,  "can_enter_ops": True},
-    "BU_DIRECTOR":       {"label": "BU Director",      "sees_prices": True,  "sees_margins": True,  "can_enter_sales": True,  "can_enter_ops": False},
+    "BU_DIRECTOR":       {"label": "BU Director",      "sees_prices": True,  "sees_margins": True,  "can_enter_sales": True,  "can_enter_ops": True},
     "LOGISTICS_ADMIN":   {"label": "Logistics Admin",  "sees_prices": True,  "sees_margins": False, "can_enter_sales": True,  "can_enter_ops": True},
     "LOGISTICS":         {"label": "Logistics",        "sees_prices": False, "sees_margins": False, "can_enter_sales": False, "can_enter_ops": True},
     "READ_ONLY":         {"label": "Read Only",        "sees_prices": False, "sees_margins": False, "can_enter_sales": False, "can_enter_ops": False},
@@ -1314,6 +1314,14 @@ def oda_delete(oda_id):
     db.commit()
     flash("ODA and all its shipments/containers deleted.", "success")
     return redirect(url_for("oda_status"))
+
+
+
+# ── User Guide ───────────────────────────────────────────────
+@app.route("/guida")
+@login_required
+def guida():
+    return render_template("guida.html", role=current_role())
 
 
 # ── Entry point ──────────────────────────────────────────────
