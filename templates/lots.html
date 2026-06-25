@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Lots & Margin{% endblock %}
+{% block page_title %}Lots & Margin{% endblock %}
+
+{% block main_content %}
+
+{# ── Filters ── #}
+<div class="card" style="margin-bottom:20px">
+  <div class="card-body">
+    <form method="GET" style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">
+      <div class="form-group" style="margin:0;flex:0 0 160px">
+        <label>Product</label>
+        <select name="product_id" onchange="this.form.submit()">
+          <option value="">— all —</option>
+          {% for p in products %}
+          <option value="{{ p.id }}" {% if product_filter == p.id|string %}selected{% endif %}>{{ p.code }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group" style="margin:0;flex:1 1 200px">
+        <label>Supplier</label>
+        <select name="supplier_id" onchange="this.form.submit()">
+          <option value="">— all —</option>
+          {% for s in suppliers %}
+          <option value="{{ s.id }}" {% if supplier_filter == s.id|string %}selected{% endif %}>{{ s.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <a href="{{ url_for('lots') }}" class="btn btn-ghost btn-sm">Clear</a>
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-body-flush table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>ODA</th>
+          <th>B/L</th>
+          <th>Supplier</th>
+          <th>Product</th>
+          <th>Vessel</th>
+          <th>On Board</th>
+          <th class="num">Ctrs</th>
+          <th class="num">Total MT</th>
+          <th class="num">Sold MT</th>
+          <th class="num">Unsold MT</th>
+          <th class="num">Purchase €/MT</th>
+          <th class="num">Realized €/MT</th>
+          <th class="num">Realized € Total</th>
+          <th class="num">Carrying Value €</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for l in lots %}
+        <tr>
+          <td class="mono">{{ l.oda_code }}</td>
+          <td class="mono">{{ l.effective_lot_ref }}</td>
+          <td>{{ l.supplier_name }}</td>
+          <td class="mono">{{ l.product_code }}</td>
+          <td class="muted">{{ l.vessel_name or '—' }}</td>
+          <td class="muted mono">{{ l.bl_date or '—' }}</td>
+          <td class="num">{{ l.num_containers }}</td>
+          <td class="num">{{ "%.2f"|format(l.total_mt or 0) }}</td>
+          <td class="num">{{ "%.2f"|format(l.sold_mt or 0) }}</td>
+          <td class="num">{{ "%.2f"|format(l.unsold_mt or 0) }}</td>
+          <td class="num">{{ "%.2f"|format(l.purchase_price_eur_per_mt or 0) }}</td>
+          <td class="num {% if l.realized_margin_eur and l.sold_mt and (l.realized_margin_eur / l.sold_mt) > 0 %}positive{% endif %}">
+            {% if l.sold_mt and l.sold_mt > 0 %}{{ "%.2f"|format(l.realized_margin_eur / l.sold_mt) }}
+            {% else %}—{% endif %}
+          </td>
+          <td class="num {% if l.realized_margin_eur and l.realized_margin_eur > 0 %}positive{% endif %}">
+            {{ "{:,.0f}".format(l.realized_margin_eur or 0) }}
+          </td>
+          <td class="num">{{ "{:,.0f}".format(l.unsold_carrying_value_eur or 0) }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="14"><div class="empty-state"><div class="empty-icon">◎</div>No lot data yet</div></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

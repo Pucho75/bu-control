@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+{% block title %}Confirm ODV{% endblock %}
+{% block page_title %}Confirm ODV Import{% endblock %}
+
+{% block main_content %}
+{% if queue_remaining and queue_remaining > 1 %}
+<div class="alert alert-warning" style="margin-bottom:16px">
+  Processing {{ queue_remaining }} ODV(s) — confirm this one to continue.
+</div>
+{% endif %}
+
+<form method="POST" action="{{ url_for('sales_parse.parse_odv_confirm') }}">
+  <input type="hidden" name="num_lines" value="{{ extracted.lines|length }}">
+
+  {# ── Header ── #}
+  <div class="card" style="margin-bottom:20px">
+    <div class="card-header">
+      <span class="card-title">Sales Order Details</span>
+      <span class="text-muted" style="font-size:12px">{{ extracted._filename }}</span>
+    </div>
+    <div class="card-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label>ODV Number</label>
+          <input type="text" name="odv_number" value="{{ extracted.odv_number or '' }}" required>
+        </div>
+        <div class="form-group">
+          <label>ODV Date</label>
+          <input type="date" name="odv_date" value="{{ extracted.odv_date or '' }}" required>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group" style="flex:2">
+          <label>Customer — select existing or create new</label>
+          <select name="customer_id">
+            <option value="">— create new —</option>
+            {% for c in customers %}
+            <option value="{{ c.id }}" {% if matched_customer_id == c.id %}selected{% endif %}>
+              {{ c.name }}
+            </option>
+            {% endfor %}
+          </select>
+          {% if customer_match_type == 'exact' %}
+          <div style="font-size:11px;color:var(--green);margin-top:4px">✓ exact match</div>
+          {% elif customer_match_type == 'fuzzy' %}
+          <div style="font-size:11px;color:var(--amber);margin-top:4px">~ fuzzy → "{{ customer_match_name }}"</div>
+          {% endif %}
+        </div>
+        <div class="form-group" style="flex:2">
+          <label>Customer Name (if new)</label>
+          <input type="text" name="customer_name" value="{{ extracted.customer_name or '' }}">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Incoterm</label>
+          <input type="text" name="incoterm" value="{{ extracted.incoterm or '' }}" style="width:100px">
+        </div>
+        <div class="form-group">
+          <label>Location</label>
+          <input type="text" name="incoterm_location" value="{{ extracted.incoterm_location or '' }}">
+        </div>
+        <div class="form-group">
+          <label>Currency</label>
+          <select name="currency">
+            <option value="EUR" {% if extracted.currency == 'EUR' %}selected{% endif %}>EUR</option>
+            <option value="USD" {% if extracted.currency == 'USD' %}selected{% endif %}>USD</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Storage Origin</label>
+          <select name="storage_facility_id">
+            <option value="">— Da definire —</option>
+            {% for f in facilities %}
+            <option value="{{ f.id }}">{{ f.code }} — {{ f.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {# ── Product Lines ── #}
+  <div class="card" style="margin-bottom:20px">
+    <div class="card-header">
+      <span class="card-title">Product Lines</span>
+      <span class="text-muted" style="font-size:12px">{{ extracted.lines|length }} line(s)</span>
+    </div>
+    <div class="card-body-flush table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Product</th>
+            <th class="num">MT</th>
+            <th class="num">Price €/MT</th>
+            <th class="num">Price USD/MT</th>
+            <th class="num">FX Rate</th>
+            <th>Delivery Date</th>
+            <th>Destination</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for i, line in extracted.lines|enumerate %}
+          {% set n = i + 1 %}
+          {% set matched_pid = matched_product_ids[i] if matched_product_ids and i < matched_product_ids|length else none %}
+          <tr>
+            <td class="mono">{{ n }}</td>
+            <td style="min-width:200px">
+              <select name="product_id_{{ n }}" required>
+                <option value="">— select —</option>
+                {% for p in products %}
+                <option value="{{ p.id }}" {% if matched_pid == p.id %}selected{% endif %}>
+                  {{ p.code }} — {{ p.name }}
+                </option>
+                {% endfor %}
+              </select>
+              {% if line.product_code %}
+              <div style="font-size:11px;color:var(--text-secondary);margin-top:2px">
+                Extracted: {{ line.product_code }}
+                {% if line.product_description %} — {{ line.product_description }}{% endif %}
+              </div>
+              {% endif %}
+            </td>
+            <td class="num">
+              <input type="number" name="mt_{{ n }}" step="0.001"
+                value="{{ line.mt_planned or '' }}" required style="width:90px;text-align:right">
+            </td>
+            <td class="num">
+              <input type="number" name="price_eur_{{ n }}" step="0.01"
+                value="{{ line.price_per_mt if extracted.currency == 'EUR' else 0 }}"
+                style="width:90px;text-align:right">
+            </td>
+            <td class="num">
+              <input type="number" name="price_usd_{{ n }}" step="0.01"
+                value="{{ line.price_per_mt if extracted.currency == 'USD' else 0 }}"
+                style="width:90px;text-align:right">
+            </td>
+            <td class="num">
+              <input type="number" name="exchange_rate_{{ n }}" step="0.0001"
+                placeholder="e.g. 1.0823" style="width:90px;text-align:right">
+            </td>
+            <td>
+              <input type="date" name="delivery_date_{{ n }}" value="{{ line.delivery_date or '' }}">
+            </td>
+            <td>
+              <input type="text" name="destination_{{ n }}"
+                value="{{ line.destination or extracted.incoterm_location or '' }}"
+                style="width:120px">
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="form-actions">
+    <a href="{{ url_for('sales_parse.parse_odv') }}" class="btn btn-ghost">← Re-upload</a>
+    <button type="submit" class="btn btn-primary">Confirm & Save ODV</button>
+  </div>
+</form>
+{% endblock %}

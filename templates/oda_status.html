@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+{% block title %}ODA Status{% endblock %}
+{% block page_title %}Order Status{% endblock %}
+{% block header_actions %}
+  <a href="{{ url_for('parse_docs.parse_oda') }}" class="btn btn-primary">+ Import ODA</a>
+{% endblock %}
+
+{% block main_content %}
+
+{# ── Filters ── #}
+<div class="card" style="margin-bottom:20px">
+  <div class="card-body">
+    <form method="GET" style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">
+      <div class="form-group" style="margin:0;flex:0 0 160px">
+        <label>Product</label>
+        <select name="product_id" onchange="this.form.submit()">
+          <option value="">— all —</option>
+          {% for p in products %}
+          <option value="{{ p.id }}" {% if filters.product_id == p.id|string %}selected{% endif %}>
+            {{ p.code }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group" style="margin:0;flex:1 1 180px">
+        <label>Supplier</label>
+        <select name="supplier_id" onchange="this.form.submit()">
+          <option value="">— all —</option>
+          {% for s in suppliers %}
+          <option value="{{ s.id }}" {% if filters.supplier_id == s.id|string %}selected{% endif %}>
+            {{ s.name }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group" style="margin:0;flex:0 0 140px">
+        <label>Status</label>
+        <select name="status" onchange="this.form.submit()">
+          <option value="">— all —</option>
+          <option value="open"   {% if filters.status == 'open'   %}selected{% endif %}>Open</option>
+          <option value="closed" {% if filters.status == 'closed' %}selected{% endif %}>Closed</option>
+        </select>
+      </div>
+      <a href="{{ url_for('oda_status') }}" class="btn btn-ghost btn-sm">Clear</a>
+    </form>
+  </div>
+</div>
+
+{# ── ODA List ── #}
+<div class="card">
+  <div class="card-body-flush table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>ODA</th>
+          <th>Supplier</th>
+          <th>Product</th>
+          <th>Date</th>
+          <th>Exp. Month</th>
+          <th class="num">Total MT</th>
+          {% if can('sees_prices') %}
+          <th class="num">Price €/MT</th>
+          <th class="num">Price USD/MT</th>
+          <th class="num">FX Rate</th>
+          {% endif %}
+          <th>B/Ls</th>
+          <th>Containers</th>
+          <th>COAs</th>
+          <th>Cleared</th>
+          <th>Status</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for o in odas %}
+        <tr style="cursor:pointer" onclick="window.location='{{ url_for('oda_detail', oda_id=o.id) }}'">
+          <td class="mono">{{ o.oda_code }}</td>
+          <td>{{ o.supplier_name }}</td>
+          <td class="mono">{{ o.product_code }}</td>
+          <td class="muted mono">{{ o.order_date }}</td>
+          <td class="muted mono">{{ o.expected_delivery_month or '—' }}</td>
+          <td class="num">{{ "%.1f"|format(o.total_mt) }}</td>
+          {% if can('sees_prices') %}
+          <td class="num">{{ "%.2f"|format(o.price_eur_per_mt) if o.price_eur_per_mt else '—' }}</td>
+          <td class="num">{{ "%.2f"|format(o.price_usd_per_mt) if o.price_usd_per_mt else '—' }}</td>
+          <td class="num mono">{{ "%.4f"|format(o.exchange_rate) if o.exchange_rate else '—' }}</td>
+          {% endif %}
+          {# B/Ls #}
+          <td>
+            {% if o.bl_count > 0 %}
+              <span class="pill pill-complete">{{ o.bl_count }}</span>
+            {% else %}
+              <span class="pill pill-pending">0</span>
+            {% endif %}
+          </td>
+          {# Containers #}
+          <td>
+            <span class="pill pill-{{ 'complete' if o.ctrs_arrived == o.ctrs_total and o.ctrs_total > 0 else 'provisional-storage' if o.ctrs_arrived > 0 else 'pending' }}">
+              {{ o.ctrs_arrived }}/{{ o.ctrs_total }}
+            </span>
+          </td>
+          {# COAs #}
+          <td>
+            <span class="pill pill-{{ 'complete' if o.coas_received == o.ctrs_total and o.ctrs_total > 0 else 'provisional-storage' if o.coas_received > 0 else 'pending' }}">
+              {{ o.coas_received }}/{{ o.ctrs_total }}
+            </span>
+          </td>
+          {# Customs cleared #}
+          <td>
+            <span class="pill pill-{{ 'complete' if o.ctrs_cleared == o.ctrs_total and o.ctrs_total > 0 else 'provisional-storage' if o.ctrs_cleared > 0 else 'pending' }}">
+              {{ o.ctrs_cleared }}/{{ o.ctrs_total }}
+            </span>
+          </td>
+          {# Status #}
+          <td>
+            {% if o.is_closed %}
+              <span class="pill pill-complete">CLOSED</span>
+            {% else %}
+              <span class="pill pill-in-transit">OPEN</span>
+            {% endif %}
+          </td>
+          <td style="color:var(--text-secondary)">→</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="12"><div class="empty-state">No orders found</div></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

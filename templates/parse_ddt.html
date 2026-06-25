@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Import DDT{% endblock %}
+{% block page_title %}Import DDT / Road Transport{% endblock %}
+
+{% block main_content %}
+<div class="card" style="max-width:560px">
+  <div class="card-header"><span class="card-title">Upload DDT Documents</span></div>
+  <div class="card-body">
+    <p style="color:var(--text-secondary);margin-bottom:20px;line-height:1.6">
+      Upload one or more DDT or Lettera di Vettura PDFs. Claude will extract
+      container, weight, carrier and route details automatically.
+    </p>
+    <form method="POST" enctype="multipart/form-data">
+      <div class="form-group">
+        <label>DDT Documents (PDF or image, multiple allowed)</label>
+        <input type="file" name="document" accept=".pdf,.png,.jpg,.jpeg" multiple required>
+      </div>
+      <div class="form-actions">
+        <a href="{{ url_for('containers') }}" class="btn btn-ghost">Cancel</a>
+        <button type="submit" class="btn btn-primary">Extract →</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

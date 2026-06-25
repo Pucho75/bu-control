@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}Movements{% endblock %}
+{% block page_title %}Movements{% endblock %}
+{% block header_actions %}
+  <a href="{{ url_for('movement_new') }}" class="btn btn-primary">+ New Movement</a>
+{% endblock %}
+
+{% block main_content %}
+{% if pending %}
+<div class="card" style="margin-bottom:20px">
+  <div class="card-header">
+    <span class="card-title">Pending Cost Entry</span>
+    <span class="badge">{{ pending|length }}</span>
+  </div>
+  <div class="card-body-flush table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Container</th>
+          <th>Type</th>
+          <th>Date</th>
+          <th class="num">MT</th>
+          <th>Reference</th>
+          <th>Entered By</th>
+          {% if can('sees_prices') %}<th>Action</th>{% endif %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for m in pending %}
+        <tr>
+          <td class="mono">{{ m.container_code }}</td>
+          <td><span class="pill pill-pending">{{ m.movement_type }}</span></td>
+          <td class="mono muted">{{ m.movement_date }}</td>
+          <td class="num">{{ "%.3f"|format(m.mt_moved) }}</td>
+          <td class="muted">{{ m.reference_doc or '—' }}</td>
+          <td class="muted">{{ m.phase1_entered_by or '—' }}</td>
+          {% if can('sees_prices') %}
+          <td>
+            <form method="POST" action="{{ url_for('complete_costs', movement_id=m.id) }}"
+                  style="display:flex;gap:6px;align-items:center">
+              <input type="number" name="cost_eur" step="0.01" placeholder="€ cost"
+                     style="width:100px">
+              <button type="submit" class="btn btn-sm btn-primary">Save</button>
+            </form>
+          </td>
+          {% endif %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<div class="card">
+  <div class="card-header"><span class="card-title">Recent Movements</span></div>
+  <div class="card-body-flush table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Container</th>
+          <th>Type</th>
+          <th>Date</th>
+          <th class="num">MT</th>
+          <th>Reference</th>
+          <th>Status</th>
+          {% if can('sees_prices') %}<th class="num">Cost €</th>{% endif %}
+          <th>Source</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for m in recent %}
+        <tr>
+          <td class="mono">{{ m.container_code }}</td>
+          <td class="mono">{{ m.movement_type }}</td>
+          <td class="mono muted">{{ m.movement_date }}</td>
+          <td class="num">{{ "%.3f"|format(m.mt_moved) }}</td>
+          <td class="muted">{{ m.reference_doc or '—' }}</td>
+          <td><span class="pill pill-{{ m.entry_status | lower }}">{{ m.entry_status }}</span></td>
+          {% if can('sees_prices') %}
+          <td class="num">{% if m.cost_eur %}{{ "%.2f"|format(m.cost_eur) }}{% else %}—{% endif %}</td>
+          {% endif %}
+          <td class="muted" style="font-size:11px">{{ m.source }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="8"><div class="empty-state"><div class="empty-icon">↕</div>No movements yet</div></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

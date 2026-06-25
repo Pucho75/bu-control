@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="login-wrap">
+  <div class="login-card">
+    <div class="login-header">
+      <span class="login-logo">▣</span>
+      <div>
+        <div class="login-title">BU Control</div>
+        <div class="login-sub">Trading Operations</div>
+      </div>
+    </div>
+    <div class="login-body">
+      {% if error %}
+        <div class="alert alert-error">{{ error }}</div>
+      {% endif %}
+      <form method="POST">
+        <div class="form-group">
+          <label>Username</label>
+          <input type="text" name="username" autofocus autocomplete="username">
+        </div>
+        <div class="form-group">
+          <label>Password</label>
+          <input type="password" name="password" autocomplete="current-password">
+        </div>
+        <button type="submit" class="btn btn-primary" style="width:100%; justify-content:center; margin-top:8px;">
+          Sign in
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

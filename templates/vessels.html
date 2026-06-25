@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Vessels{% endblock %}
+{% block page_title %}Vessel Tracker{% endblock %}
+{% block header_actions %}
+  <a href="{{ url_for('arrival.arrival') }}" class="btn btn-primary">+ Record Arrival</a>
+{% endblock %}
+
+{% block main_content %}
+<div class="card">
+  <div class="card-body-flush table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Vessel</th>
+          <th>Voyage</th>
+          <th>Port</th>
+          <th>ETA</th>
+          <th>ATA</th>
+          <th class="num">Containers</th>
+          <th class="num">MT</th>
+          <th>ODAs</th>
+          <th>Products</th>
+          <th>Cleared</th>
+          <th>Status</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for v in vessels %}
+        <tr>
+          <td style="font-weight:500">{{ v.vessel_name }}</td>
+          <td class="mono muted">{{ v.voyage_ref or '—' }}</td>
+          <td class="muted">{{ v.port_of_discharge or '—' }}</td>
+          <td class="mono
+            {% if v.vessel_status == 'LIKELY_ARRIVED' %}" style="color:var(--amber){% endif %}">
+            {{ v.earliest_eta or '—' }}
+          </td>
+          <td class="mono muted">{{ v.ata_date or '—' }}</td>
+          <td class="num">{{ v.num_containers }}</td>
+          <td class="num">{{ "%.1f"|format(v.total_mt or 0) }}</td>
+          <td class="mono muted" style="font-size:11px">{{ v.oda_codes }}</td>
+          <td class="mono muted" style="font-size:11px">{{ v.products }}</td>
+          <td>
+            <span class="pill pill-{{ 'complete' if v.ctrs_cleared == v.num_containers else 'provisional-storage' if v.ctrs_cleared > 0 else 'pending' }}">
+              {{ v.ctrs_cleared }}/{{ v.num_containers }}
+            </span>
+          </td>
+          <td>
+            <span class="pill pill-{{
+              'complete' if v.vessel_status == 'IN_PORT' else
+              'provisional-storage' if v.vessel_status == 'LIKELY_ARRIVED' else
+              'in-transit'
+            }}">{{ v.vessel_status }}</span>
+          </td>
+          <td>
+            {% if v.vessel_status != 'IN_PORT' or v.ctrs_cleared < v.num_containers %}
+            <a href="{{ url_for('arrival.arrival') }}?vessel={{ v.vessel_name|urlencode }}"
+               class="btn btn-sm btn-ghost">Record arrival</a>
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="12"><div class="empty-state">No active vessels</div></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,211 @@
+{% extends "base.html" %}
+{% block title %}Confirm ODA{% endblock %}
+{% block page_title %}Confirm ODA Import{% endblock %}
+
+{% block main_content %}
+{% if queue_remaining and queue_remaining > 1 %}
+<div class="alert alert-warning" style="margin-bottom:16px">
+  Processing {{ queue_remaining }} ODA(s) — confirm this one to continue to the next.
+</div>
+{% endif %}
+<form method="POST" action="{{ url_for('parse_docs.parse_oda_confirm') }}">
+  <input type="hidden" name="num_lines" value="{{ extracted.shipments|length }}">
+  <input type="hidden" name="extracted_product_desc" value="{{ extracted_desc }}">
+
+  {# ── ODA Header ── #}
+  <div class="card" style="margin-bottom:20px">
+    <div class="card-header"><span class="card-title">Purchase Order Details</span></div>
+    <div class="card-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label>ODA Number</label>
+          <input type="text" name="oda_number" value="{{ extracted.oda_number or '' }}" required>
+        </div>
+        <div class="form-group">
+          <label>ODA Date</label>
+          <input type="date" name="oda_date" value="{{ extracted.oda_date or '' }}" required>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Supplier — select existing or create new</label>
+          <select name="supplier_id">
+            <option value="">— create new —</option>
+            {% for s in suppliers %}
+            <option value="{{ s.id }}"
+              {% if matched_supplier_id == s.id %}selected{% endif %}>
+              {{ s.name }}
+            </option>
+            {% endfor %}
+          </select>
+          {% if supplier_match_type == 'exact' %}
+          <div style="font-size:11px;color:var(--green);margin-top:4px">✓ exact match</div>
+          {% elif supplier_match_type == 'fuzzy' %}
+          <div style="font-size:11px;color:var(--amber);margin-top:4px">
+            ~ fuzzy match → "{{ supplier_match_name }}"
+          </div>
+          {% endif %}
+        </div>
+        <div class="form-group">
+          <label>Supplier Name (if new)</label>
+          <input type="text" name="supplier_name" value="{{ extracted.supplier_name or '' }}">
+          {% if supplier_match_type == 'fuzzy' and extracted.supplier_name %}
+          <label style="display:flex;align-items:center;gap:6px;margin-top:6px;font-size:12px;text-transform:none;letter-spacing:0;font-family:var(--font-sans);color:var(--text-secondary)">
+            <input type="checkbox" name="save_supplier_alias" value="1" checked>
+            Save "{{ extracted.supplier_name }}" as alias for matched supplier
+          </label>
+          {% endif %}
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Country of Origin</label>
+          <input type="text" name="supplier_country" value="{{ extracted.supplier_country or '' }}" maxlength="2" style="width:80px">
+        </div>
+        <div class="form-group">
+          <label>Incoterm</label>
+          <input type="text" name="incoterm" value="{{ extracted.incoterm or '' }}" style="width:100px">
+        </div>
+        <div class="form-group">
+          <label>Location</label>
+          <input type="text" name="incoterm_location" value="{{ extracted.incoterm_location or '' }}">
+        </div>
+        <div class="form-group">
+          <label>Customs Regime</label>
+          <select name="customs_regime">
+            <option value="">— unknown —</option>
+            <option value="T1" {% if extracted.customs_regime == 'T1' %}selected{% endif %}>T1</option>
+            <option value="T2" {% if extracted.customs_regime == 'T2' %}selected{% endif %}>T2</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>VAT %</label>
+          <input type="number" name="vat_rate" step="0.01" value="{{ extracted.vat_rate or '' }}" style="width:70px">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Full Incoterm String</label>
+        <input type="text" name="incoterm_full" value="{{ extracted.incoterm_full or '' }}"
+          style="color:var(--text-secondary);font-size:12px">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Currency</label>
+          <select name="currency">
+            <option value="USD" {% if extracted.currency == 'USD' %}selected{% endif %}>USD</option>
+            <option value="EUR" {% if extracted.currency == 'EUR' %}selected{% endif %}>EUR</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Payment Terms</label>
+          <input type="text" name="payment_terms" value="{{ extracted.payment_terms or '' }}">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {# ── Shipment Lines ── #}
+  <div class="card" style="margin-bottom:20px">
+    <div class="card-header"><span class="card-title">Shipment Lines</span></div>
+    <div class="card-body-flush table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Product</th>
+            <th>Container Type</th>
+            <th class="num">N. Containers</th>
+            <th class="num">MT</th>
+            <th class="num">Price/MT</th>
+            <th>Delivery Date</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for i, line in extracted.shipments|enumerate %}
+          {% set n = i + 1 %}
+          <tr>
+            <td class="mono">{{ n }}</td>
+            <td>
+              <select name="product_id" required>
+                <option value="">— select —</option>
+                {% for p in products %}
+                <option value="{{ p.id }}"
+                  {% if matched_product_id == p.id %}selected{% endif %}>
+                  {{ p.code }} — {{ p.name }}
+                </option>
+                {% endfor %}
+              </select>
+              {% if alias_found %}
+              <div style="font-size:11px;color:var(--green);margin-top:4px">✓ matched via alias</div>
+              {% elif extracted_desc %}
+              <div style="font-size:11px;color:var(--amber);margin-top:4px">
+                Extracted: "{{ extracted_desc }}" — no alias found
+              </div>
+              <label style="display:flex;align-items:center;gap:6px;margin-top:6px;font-size:12px;text-transform:none;letter-spacing:0;font-family:var(--font-sans);color:var(--text-secondary)">
+                <input type="checkbox" name="save_alias" value="1">
+                Save "{{ extracted_desc }}" as alias for selected product
+              </label>
+              {% endif %}
+            </td>
+            <td>
+              <select name="container_type_{{ n }}">
+                <option value="ISOTANK" {% if line.container_type == 'ISOTANK' %}selected{% endif %}>ISOTANK</option>
+                <option value="ONE_TON_CUBE" {% if line.container_type == 'ONE_TON_CUBE' %}selected{% endif %}>IBC</option>
+                <option value="FLEXIBAG" {% if line.container_type == 'FLEXIBAG' %}selected{% endif %}>FLEXIBAG</option>
+                <option value="ATB" {% if line.container_type == 'ATB' %}selected{% endif %}>ATB</option>
+              </select>
+            </td>
+            <td class="num">
+              <input type="number" name="num_containers_{{ n }}" value="{{ line.num_containers or '' }}" style="width:70px;text-align:right">
+            </td>
+            <td class="num">
+              <input type="number" name="mt_{{ n }}" step="0.001" value="{{ line.mt_planned or '' }}" required style="width:90px;text-align:right">
+            </td>
+            <td class="num">
+              <input type="number" name="price_{{ n }}" step="0.01" value="{{ line.price_per_mt or '' }}" style="width:90px;text-align:right">
+            </td>
+            <td>
+              <input type="date" name="delivery_date_{{ n }}" value="{{ line.delivery_date or '' }}">
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  {# ── Totals (computed from lines) ── #}
+  <div class="card" style="margin-bottom:20px">
+    <div class="card-header"><span class="card-title">ODA Totals</span></div>
+    <div class="card-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Total MT</label>
+          <input type="number" name="total_mt" step="0.001"
+            value="{{ extracted.shipments|map(attribute='mt_planned')|select('number')|sum if extracted.shipments else '' }}" required>
+        </div>
+        <div class="form-group">
+          <label>Total Containers</label>
+          <input type="number" name="total_containers"
+            value="{{ extracted.shipments|map(attribute='num_containers')|select('number')|sum if extracted.shipments else '' }}">
+        </div>
+        <div class="form-group">
+          <label>Price €/MT (if EUR)</label>
+          <input type="number" name="price_eur" step="0.01"
+            value="{{ extracted.shipments[0].price_per_mt if extracted.shipments and extracted.currency == 'EUR' else 0 }}">
+        </div>
+        <div class="form-group">
+          <label>Price USD/MT (if USD)</label>
+          <input type="number" name="price_usd" step="0.01"
+            value="{{ extracted.shipments[0].price_per_mt if extracted.shipments and extracted.currency == 'USD' else 0 }}">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="form-actions">
+    <a href="{{ url_for('parse_docs.parse_oda') }}" class="btn btn-ghost">← Re-upload</a>
+    <button type="submit" class="btn btn-primary">Confirm & Save ODA</button>
+  </div>
+</form>
+{% endblock %}

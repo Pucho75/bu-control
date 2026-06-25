@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+{% block title %}New Sale — Step 3{% endblock %}
+{% block page_title %}New Sale{% endblock %}
+
+{% block main_content %}
+<div class="wizard-steps">
+  <div class="wizard-step done"><span class="step-num">1</span> Commercial</div>
+  <div class="wizard-step done"><span class="step-num">2</span> Transport</div>
+  <div class="wizard-step active"><span class="step-num">3</span> Lot Assignment</div>
+</div>
+
+<div class="card" style="max-width:900px">
+  <div class="card-header">
+    <span class="card-title">Lot Assignment — FIFO Proposal</span>
+    <span class="text-muted" style="font-size:12px">
+      Target: <strong>{{ draft.provisional_mt }} MT</strong> of
+      product {{ draft.product_id }}
+    </span>
+  </div>
+  <div class="card-body">
+    <form method="POST" id="lot-form">
+      <div class="table-wrap" style="margin-bottom:24px">
+        <table>
+          <thead>
+            <tr>
+              <th>Lot Ref</th>
+              <th>ODA</th>
+              <th>Container</th>
+              <th>Clearance Date</th>
+              <th class="num">Available MT</th>
+              <th class="num">Assign MT</th>
+              {% if show_margin %}
+              <th class="num">Landed Cost €/MT</th>
+              <th class="num">Margin €/MT</th>
+              {% endif %}
+              <th>Override?</th>
+            </tr>
+          </thead>
+          <tbody id="lot-rows">
+            {% set ns = namespace(remaining=draft.provisional_mt | float, fifo_index=0) %}
+            {% for lot in fifo_queue %}
+            {% set suggested = [ns.remaining, lot.available_mt] | min %}
+            {% set is_fifo = ns.fifo_index == loop.index0 or suggested > 0 %}
+            <tr data-available="{{ lot.available_mt }}" data-shipment="{{ lot.shipment_id }}">
+              <td class="mono">{{ lot.effective_lot_ref }}</td>
+              <td class="mono">{{ lot.oda_code }}</td>
+              <td class="mono">{{ lot.container_code }}</td>
+              <td class="mono">{{ lot.customs_clearance_date }}</td>
+              <td class="num">{{ "%.3f"|format(lot.available_mt) }}</td>
+              <td class="num">
+                <input type="number"
+                       name="lot_mt_{{ lot.shipment_id }}"
+                       class="lot-input"
+                       step="0.001" min="0" max="{{ lot.available_mt }}"
+                       value="{{ "%.3f"|format(suggested) if suggested > 0 else '' }}"
+                       style="width:90px;text-align:right"
+                       oninput="updateTotal()">
+              </td>
+              {% if show_margin %}
+              <td class="num text-muted" style="font-size:11px">—</td>
+              <td class="num" id="margin-{{ lot.shipment_id }}">—</td>
+              {% endif %}
+              <td>
+                <label style="display:flex;align-items:center;gap:6px;text-transform:none;font-family:var(--font-sans);font-size:12px;letter-spacing:0;color:var(--text-secondary)">
+                  <input type="checkbox" name="override_{{ lot.shipment_id }}" value="1"
+                         {% if not is_fifo %}checked{% endif %}>
+                  Override FIFO
+                </label>
+                <input type="text" name="override_reason_{{ lot.shipment_id }}"
+                       placeholder="reason (optional)"
+                       style="width:100%;margin-top:4px;font-size:11px"
+                       {% if is_fifo %}style="display:none"{% endif %}>
+              </td>
+            </tr>
+            {% set ns.remaining = ns.remaining - suggested %}
+            {% else %}
+            <tr>
+              <td colspan="8">
+                <div class="empty-state" style="padding:24px">
+                  <div class="empty-icon">◎</div>
+                  No available inventory for this product
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      {# MT summary bar #}
+      <div class="card" style="background:var(--surface-2);padding:0;margin-bottom:20px">
+        <div class="metric-grid" style="grid-template-columns:repeat(4,1fr)">
+          <div class="metric">
+            <div class="metric-label">Target MT</div>
+            <div class="metric-value">{{ draft.provisional_mt }}</div>
+          </div>
+          <div class="metric">
+            <div class="metric-label">Assigned MT</div>
+            <div class="metric-value" id="assigned-mt">0.000</div>
+          </div>
+          <div class="metric">
+            <div class="metric-label">Remaining MT</div>
+            <div class="metric-value" id="remaining-mt">{{ draft.provisional_mt }}</div>
+          </div>
+          {% if show_margin %}
+          <div class="metric">
+            <div class="metric-label">Blended Margin €</div>
+            <div class="metric-value positive" id="total-margin">—</div>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <a href="{{ url_for('sale_new_step2') }}" class="btn btn-ghost">← Back</a>
+        <button type="submit" class="btn btn-primary">Confirm Sale</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const target = {{ draft.provisional_mt | float }};
+
+function updateTotal() {
+  let total = 0;
+  document.querySelectorAll('.lot-input').forEach(inp => {
+    total += parseFloat(inp.value || 0);
+  });
+  document.getElementById('assigned-mt').textContent = total.toFixed(3);
+  const rem = target - total;
+  const remEl = document.getElementById('remaining-mt');
+  remEl.textContent = rem.toFixed(3);
+  remEl.style.color = Math.abs(rem) < 0.001 ? 'var(--green)' : rem < 0 ? 'var(--red)' : 'inherit';
+}
+
+updateTotal();
+</script>
+{% endblock %}

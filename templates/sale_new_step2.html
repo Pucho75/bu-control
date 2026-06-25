@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block title %}New Sale — Step 2{% endblock %}
+{% block page_title %}New Sale{% endblock %}
+
+{% block main_content %}
+<div class="wizard-steps">
+  <div class="wizard-step done"><span class="step-num">1</span> Commercial</div>
+  <div class="wizard-step active"><span class="step-num">2</span> Transport</div>
+  <div class="wizard-step"><span class="step-num">3</span> Lot Assignment</div>
+</div>
+
+<div class="card" style="max-width:680px">
+  <div class="card-header"><span class="card-title">Transport to Customer</span></div>
+  <div class="card-body">
+
+    {% if draft.incoterm == 'EXW' %}
+    <div class="alert alert-warning" style="margin-bottom:20px">
+      Incoterm is <strong>EXW</strong> — transport is at customer's cost. No transport cost will be recorded on your P&L.
+    </div>
+    {% endif %}
+
+    {% if matrix_rate %}
+    <div class="card" style="background:var(--surface-2);margin-bottom:20px;border:1px solid var(--border)">
+      <div class="card-body">
+        <div class="flex-between">
+          <div>
+            <div class="metric-label">Matrix Rate Found</div>
+            <div style="font-family:var(--font-mono);font-size:16px;font-weight:500;margin-top:4px">
+              {{ "%.2f"|format(matrix_rate.rate_eur_per_mt) }} €/MT — {{ matrix_rate.carrier_name }}
+            </div>
+          </div>
+          <button type="button" class="btn btn-primary btn-sm" id="use-matrix-btn">Use this rate</button>
+        </div>
+      </div>
+    </div>
+    {% else %}
+    <div class="alert alert-warning" style="margin-bottom:20px">
+      No matrix rate found for this storage × destination combination. Please enter manually.
+    </div>
+    {% endif %}
+
+    <form method="POST">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Carrier</label>
+          <select name="carrier_id">
+            <option value="">— select —</option>
+            {% for c in carriers %}
+            <option value="{{ c.id }}"
+              {% if matrix_rate and matrix_rate.carrier_id == c.id %}selected{% endif %}>
+              {{ c.name }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Transport Total (€)</label>
+          <input type="number" name="transport_eur" id="transport-eur" step="0.01"
+                 value="{{ (matrix_rate.rate_eur_per_mt * draft.provisional_mt | float) | round(2) if matrix_rate else '' }}"
+                 {% if draft.incoterm == 'EXW' %}value="0" readonly{% endif %}>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Source</label>
+        <select name="transport_source" id="transport-source" onchange="toggleOverride(this.value)">
+          <option value="MATRIX" {% if matrix_rate %}selected{% endif %}>Matrix rate</option>
+          <option value="MANUAL" {% if not matrix_rate %}selected{% endif %}>Manual</option>
+          {% if draft.incoterm == 'EXW' %}<option value="NA" selected>N/A (EXW)</option>{% endif %}
+        </select>
+      </div>
+
+      <div class="form-group" id="override-reason-group" style="display:none">
+        <label>Override Reason <span style="color:var(--red)">*</span></label>
+        <input type="text" name="transport_override_reason" placeholder="e.g. mixed load, spot carrier, combo delivery">
+      </div>
+
+      <div class="form-actions">
+        <a href="{{ url_for('sale_new') }}" class="btn btn-ghost">← Back</a>
+        <button type="submit" class="btn btn-primary">Next →</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleOverride(val) {
+  document.getElementById('override-reason-group').style.display =
+    val === 'MANUAL' ? 'block' : 'none';
+}
+toggleOverride(document.getElementById('transport-source').value);
+
+{% if matrix_rate %}
+document.getElementById('use-matrix-btn').addEventListener('click', () => {
+  document.getElementById('transport-eur').value =
+    {{ (matrix_rate.rate_eur_per_mt * draft.provisional_mt | float) | round(2) }};
+  document.getElementById('transport-source').value = 'MATRIX';
+  toggleOverride('MATRIX');
+});
+{% endif %}
+</script>
+{% endblock %}

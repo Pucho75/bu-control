@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}New Movement{% endblock %}
+{% block page_title %}Record Movement{% endblock %}
+{% block main_content %}
+<div class="card" style="max-width:600px">
+  <div class="card-header"><span class="card-title">Movement Details</span></div>
+  <div class="card-body">
+    <form method="POST">
+      <div class="form-group">
+        <label>Container</label>
+        <select name="container_id" required>
+          <option value="">— select —</option>
+          {% for c in containers %}
+          <option value="{{ c.id }}">{{ c.container_code }} — {{ c.product_code }} ({{ c.status }})</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Movement Type</label>
+          <select name="movement_type" required>
+            <option value="IMPORT">Import</option>
+            <option value="CUSTOMS_CLEARANCE">Customs Clearance</option>
+            <option value="TRANSFER_IN">Transfer In</option>
+            <option value="TRANSFER_OUT">Transfer Out</option>
+            <option value="SALE_OUT">Sale Out</option>
+            <option value="ADJUSTMENT">Adjustment</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Date</label>
+          <input type="date" name="movement_date" required value="{{ now.strftime('%Y-%m-%d') }}">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>From Facility</label>
+          <select name="from_facility_id">
+            <option value="">— none —</option>
+            {% for f in facilities %}
+            <option value="{{ f.id }}">{{ f.code }} — {{ f.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label>To Facility</label>
+          <select name="to_facility_id">
+            <option value="">— none —</option>
+            {% for f in facilities %}
+            <option value="{{ f.id }}">{{ f.code }} — {{ f.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>MT Moved</label>
+          <input type="number" name="mt_moved" step="0.001" required>
+        </div>
+        <div class="form-group">
+          <label>Reference Doc</label>
+          <input type="text" name="reference_doc" placeholder="BL, CMR, DDT...">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Notes</label>
+        <textarea name="notes" rows="2" style="resize:vertical"></textarea>
+      </div>
+      <div class="form-actions">
+        <a href="{{ url_for('movements') }}" class="btn btn-ghost">Cancel</a>
+        <button type="submit" class="btn btn-primary">Record Movement</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

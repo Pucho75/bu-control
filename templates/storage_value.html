@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+{% block title %}Storage Value{% endblock %}
+{% block page_title %}Storage Carrying Value{% endblock %}
+{% block header_actions %}
+  <span class="text-muted text-mono" style="font-size:12px">Live snapshot — {{ now.strftime('%d %b %Y') }}</span>
+{% endblock %}
+
+{% block main_content %}
+
+{# ── Summary totals ── #}
+<div class="dash-grid" style="margin-bottom:20px">
+  <div class="card">
+    <div class="metric-grid">
+      <div class="metric">
+        <div class="metric-label">Available MT</div>
+        <div class="metric-value neutral">{{ "%.3f"|format(totals.available_mt or 0) }}</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Total Carrying Value €</div>
+        <div class="metric-value {% if totals.carrying_value > 0 %}positive{% endif %}">
+          {{ "{:,.0f}".format(totals.carrying_value or 0) }}
+        </div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Avg Cost €/MT</div>
+        <div class="metric-value neutral">
+          {% if totals.available_mt %}
+            {{ "%.2f"|format(totals.carrying_value / totals.available_mt) }}
+          {% else %}—{% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ── Facility × Product subtotals ── #}
+<div class="card" style="margin-bottom:20px">
+  <div class="card-header"><span class="card-title">By Facility & Product</span></div>
+  <div class="card-body-flush table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Facility</th>
+          <th>Product</th>
+          <th class="num">Available MT</th>
+          <th class="num">Carrying Value €</th>
+          <th class="num">Avg €/MT</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for (fac, prod), sub in subtotals.items()|sort %}
+        <tr>
+          <td class="mono">{{ fac }}</td>
+          <td class="mono">{{ prod }}</td>
+          <td class="num">{{ "%.3f"|format(sub.available_mt or 0) }}</td>
+          <td class="num" style="font-weight:500">{{ "{:,.0f}".format(sub.carrying_value or 0) }}</td>
+          <td class="num text-muted">
+            {% if sub.available_mt %}{{ "%.2f"|format(sub.carrying_value / sub.available_mt) }}{% else %}—{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{# ── Lot detail ── #}
+<div class="card">
+  <div class="card-header">
+    <span class="card-title">Lot Detail — Cost Stack</span>
+    <span class="text-muted" style="font-size:12px">All costs in €/MT</span>
+  </div>
+  <div class="card-body-flush table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Facility</th>
+          <th>Product</th>
+          <th>ODA</th>
+          <th>Entry Date</th>
+          <th class="num">Avail MT</th>
+          <th class="num">Purchase</th>
+          <th class="num">Commission</th>
+          <th class="num">Log In</th>
+          <th class="num">Stoccaggio</th>
+          <th class="num">Customs</th>
+          <th class="num">Transp→St.</th>
+          <th class="num">Total €/MT</th>
+          <th class="num">Carrying €</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% set ns = namespace(last_facility='', last_product='') %}
+        {% for r in rows %}
+        {% if r.facility_code != ns.last_facility or r.product_code != ns.last_product %}
+          {% if not loop.first %}
+          <tr style="border-top:2px solid var(--border)">
+            <td colspan="13"></td>
+          </tr>
+          {% endif %}
+          {% set ns.last_facility = r.facility_code %}
+          {% set ns.last_product  = r.product_code %}
+        {% endif %}
+        <tr>
+          <td class="mono">{{ r.facility_code }}</td>
+          <td class="mono">{{ r.product_code }}</td>
+          <td class="mono text-muted">{{ r.oda_code }}</td>
+          <td class="mono text-muted">{{ r.storage_entry_date or '—' }}</td>
+          <td class="num">{{ "%.3f"|format(r.available_mt or 0) }}</td>
+          <td class="num">{{ "%.2f"|format(r.purchase_price or 0) }}</td>
+          <td class="num {% if r.commission_per_mt %}text-muted{% endif %}">
+            {% if r.commission_per_mt %}{{ "%.2f"|format(r.commission_per_mt) }}{% else %}<span class="text-muted">—</span>{% endif %}
+          </td>
+          <td class="num">
+            {% if r.log_in_per_mt %}{{ "%.2f"|format(r.log_in_per_mt) }}{% else %}<span class="text-muted">—</span>{% endif %}
+          </td>
+          <td class="num">
+            {% if r.stoccaggio_per_mt %}{{ "%.2f"|format(r.stoccaggio_per_mt) }}{% else %}<span class="text-muted">—</span>{% endif %}
+          </td>
+          <td class="num">
+            {% if r.customs_per_mt %}{{ "%.2f"|format(r.customs_per_mt) }}{% else %}<span class="text-muted">—</span>{% endif %}
+          </td>
+          <td class="num">
+            {% if r.transp_st_per_mt %}{{ "%.2f"|format(r.transp_st_per_mt) }}{% else %}<span class="text-muted">—</span>{% endif %}
+          </td>
+          <td class="num" style="font-weight:500">{{ "%.2f"|format(r.cost_per_mt or 0) }}</td>
+          <td class="num" style="font-weight:500">{{ "{:,.0f}".format(r.carrying_value_eur or 0) }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="13"><div class="empty-state">No inventory in storage</div></td></tr>
+        {% endfor %}
+      </tbody>
+      {% if rows %}
+      <tfoot>
+        <tr style="border-top:2px solid var(--border);font-weight:600">
+          <td colspan="4">Total</td>
+          <td class="num">{{ "%.3f"|format(totals.available_mt or 0) }}</td>
+          <td colspan="7"></td>
+          <td class="num">{{ "{:,.0f}".format(totals.carrying_value or 0) }}</td>
+        </tr>
+      </tfoot>
+      {% endif %}
+    </table>
+  </div>
+</div>
+
+{% endblock %}

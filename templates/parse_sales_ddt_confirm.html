@@ -1,0 +1,375 @@
+{% extends "base.html" %}
+{% block title %}Confirm Sales DDT{% endblock %}
+{% block page_title %}Confirm Sales DDT — Lot Allocation{% endblock %}
+
+{% block main_content %}
+<form method="POST" action="{{ url_for('sales_parse.parse_sales_ddt_confirm') }}">
+
+  {# ── DDT Details ── #}
+  <div class="card" style="margin-bottom:20px">
+    <div class="card-header"><span class="card-title">DDT Details</span></div>
+    <div class="card-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label>DDT Number</label>
+          <input type="text" name="ddt_number" value="{{ extracted.ddt_number or '' }}" required>
+        </div>
+        <div class="form-group">
+          <label>DDT Date</label>
+          <input type="date" name="ddt_date" value="{{ extracted.ddt_date or today }}" required>
+        </div>
+        <div class="form-group">
+          <label>Storage Origin</label>
+          <select name="storage_facility_id" required id="facility-select">
+            <option value="">— select —</option>
+            {% for f in facilities %}
+            <option value="{{ f.id }}" {% if selected_facility_id == f.id %}selected{% endif %}>
+              {{ f.code }} — {{ f.name }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      {% if extracted.carrier_name or extracted.plate_number %}
+      <div class="form-row">
+        <div class="form-group">
+          <label>Carrier (from doc)</label>
+          <input type="text" value="{{ extracted.carrier_name or '' }}" readonly style="color:var(--text-secondary)">
+        </div>
+        <div class="form-group">
+          <label>Plate</label>
+          <input type="text" value="{{ extracted.plate_number or '' }}" readonly style="color:var(--text-secondary)">
+        </div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  {# ── Transport to Customer ── #}
+  <div class="card" style="margin-bottom:20px">
+    <div class="card-header">
+      <span class="card-title">Transport to Customer</span>
+      <span class="text-muted" style="font-size:12px">DAP only — leave blank for EXW. Applied to first product line.</span>
+    </div>
+    <div class="card-body">
+      <div class="form-row">
+        <div class="form-group" style="flex:1">
+          <label>Carrier</label>
+          <select name="carrier_id">
+            <option value="">— select carrier —</option>
+            {% for c in carriers %}
+            <option value="{{ c.id }}">{{ c.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group" style="flex:0 0 160px">
+          <label>Transport Cost € (total)</label>
+          <input type="number" name="transport_to_customer_eur" step="0.01" placeholder="0.00" min="0">
+        </div>
+        <div class="form-group" style="flex:0 0 200px">
+          <label>Override Reason</label>
+          <input type="text" name="transport_override_reason" placeholder="e.g. urgent delivery">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {# ── Sale Lines — one section per product ── #}
+  {% for line in sale_lines or [] %}
+  {% set idx = loop.index %}
+  <input type="hidden" name="sale_id_{{ idx }}" value="{{ line.sale.id }}">
+
+  <div class="card" style="margin-bottom:20px">
+    <div class="card-header">
+      <span class="card-title">
+        Line {{ idx }} — {{ line.sale.product_code }}
+        <span class="text-muted" style="font-size:12px">{{ line.sale.sale_code }} · {{ line.sale.customer_name }}</span>
+      </span>
+    </div>
+    <div class="card-body" style="border-bottom:1px solid var(--border)">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Actual MT (this product)</label>
+          <input type="number" name="actual_mt_{{ idx }}" step="0.001"
+            value="{{ extracted.lines[loop.index0].actual_mt if extracted.lines and loop.index0 < extracted.lines|length else '' }}"
+            class="ddt-mt-input" data-idx="{{ idx }}"
+            oninput="updateBalance({{ idx }})" required style="width:120px">
+        </div>
+        <div class="form-group">
+          <label>Sale Price €/MT</label>
+          <input type="text" value="{{ '%.2f'|format(line.sale.price_eur_per_mt or 0) }}" readonly
+            style="color:var(--text-secondary);width:100px">
+        </div>
+        <div class="form-group">
+          <label>Provisional MT</label>
+          <input type="text" value="{{ '%.3f'|format(line.sale.provisional_mt or 0) }}" readonly
+            style="color:var(--text-secondary);width:100px">
+        </div>
+      </div>
+    </div>
+
+    {# Balance bar #}
+    <div style="padding:10px 20px;background:var(--surface-2);border-bottom:1px solid var(--border)">
+      <div style="display:flex;gap:24px;align-items:center;font-size:13px">
+        <div>DDT MT: <strong id="ddt-total-{{ idx }}">0.000</strong></div>
+        <div>Allocated: <strong id="allocated-{{ idx }}" style="color:var(--amber)">0.000</strong></div>
+        <div>Remaining: <strong id="remaining-{{ idx }}" style="color:var(--amber)">0.000</strong></div>
+      </div>
+    </div>
+
+    {# Allocation table #}
+    <div class="card-body-flush table-wrap">
+      <table id="alloc-table-{{ idx }}">
+        <thead>
+          <tr>
+            <th>Container</th>
+            <th>Lot</th>
+            <th>ODA</th>
+            <th>B/L</th>
+            <th>Depot</th>
+            <th class="num">Available MT</th>
+            <th class="num">Draw MT</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="alloc-rows-{{ idx }}">
+          {% for c in line.lot_containers %}
+          <tr class="alloc-row-{{ idx }}">
+            <input type="hidden" name="alloc_{{ idx }}_container_id_{{ loop.index0 }}" value="{{ c.id }}">
+            <input type="hidden" name="alloc_{{ idx }}_shipment_id_{{ loop.index0 }}" value="{{ c.shipment_id }}">
+            <input type="hidden" name="alloc_{{ idx }}_lot_{{ loop.index0 }}" value="{{ c.production_lot }}">
+            <input type="hidden" name="alloc_{{ idx }}_purchase_price_{{ loop.index0 }}" value="{{ c.purchase_price or 0 }}">
+            <td class="mono">{{ c.container_code or '—' }}</td>
+            <td class="mono">{{ c.production_lot or '—' }}</td>
+            <td class="mono">{{ c.oda_code }}</td>
+            <td class="mono muted">{{ c.bl_number or '—' }}</td>
+            <td class="muted">{{ c.facility_code or '—' }}</td>
+            <td class="num">{{ "%.3f"|format(c.available_mt or 0) }}</td>
+            <td class="num">
+              <input type="number" name="alloc_{{ idx }}_draw_mt_{{ loop.index0 }}"
+                step="0.001" min="0" max="{{ c.available_mt + 0.001 }}"
+                class="draw-input-{{ idx }}" style="width:90px;text-align:right"
+                oninput="updateBalance({{ idx }})">
+            </td>
+            <td>
+              <button type="button" class="btn btn-sm btn-ghost" style="color:var(--red)"
+                onclick="removeRow(this, {{ idx }})">×</button>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <input type="hidden" name="alloc_num_rows_{{ idx }}" id="alloc-num-rows-{{ idx }}"
+      value="{{ line.lot_containers|length }}">
+
+    {# Add from stock ── #}
+    <div class="card-body" style="border-top:1px solid var(--border)">
+      <div style="font-size:12px;color:var(--text-secondary);margin-bottom:8px">
+        Add from available stock ({{ line.sale.product_code }} only):
+      </div>
+      <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+        <select id="add-select-{{ idx }}" style="min-width:280px">
+          <option value="">— select container —</option>
+          {% for c in line.all_available %}
+          {% if c.id not in line.matched_ids %}
+          <option value="{{ c.id }}"
+            data-lot="{{ c.production_lot or '' }}"
+            data-oda="{{ c.oda_code }}"
+            data-bl="{{ c.bl_number or '' }}"
+            data-facility="{{ c.facility_code or '' }}"
+            data-available="{{ c.available_mt }}"
+            data-shipment="{{ c.shipment_id }}"
+            data-price="{{ c.purchase_price or 0 }}">
+            {{ c.container_code or '—' }} | {{ c.production_lot or 'no lot' }} | {{ c.oda_code }} | {{ "%.3f"|format(c.available_mt) }} MT
+          </option>
+          {% endif %}
+          {% endfor %}
+        </select>
+        <input type="number" id="add-mt-{{ idx }}" step="0.001" placeholder="0.000" style="width:90px">
+        <button type="button" class="btn btn-ghost btn-sm" onclick="addRow({{ idx }})">+ Add</button>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+
+  {# ── Single-product fallback (no ODV match) ── #}
+  {% if not sale_lines %}
+  <div class="card" style="margin-bottom:20px">
+    <div class="card-header"><span class="card-title">Link to Sale</span></div>
+    <div class="card-body">
+      <div class="form-row">
+        <div class="form-group" style="flex:1">
+          <label>Select Sale</label>
+          <select name="sale_id" required id="sale-select">
+            <option value="">— select —</option>
+            {% for s in sales %}
+            <option value="{{ s.id }}"
+              data-facility="{{ s.storage_facility_id or '' }}"
+              {% if extracted.odv_reference and extracted.odv_reference in s.sale_code %}selected{% endif %}>
+              {{ s.sale_code }} — {{ s.customer_name }} — {{ s.product_code }}
+              ({{ "%.3f"|format(s.provisional_mt) }} MT, {{ s.status }})
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Actual MT</label>
+          <input type="number" name="actual_mt_1" step="0.001"
+            value="{{ extracted.actual_mt or '' }}" required
+            class="ddt-mt-input" data-idx="1" oninput="updateBalance(1)">
+        </div>
+      </div>
+    </div>
+
+    <div style="padding:10px 20px;background:var(--surface-2);border-bottom:1px solid var(--border)">
+      <div style="display:flex;gap:24px;align-items:center;font-size:13px">
+        <div>DDT MT: <strong id="ddt-total-1">0.000</strong></div>
+        <div>Allocated: <strong id="allocated-1" style="color:var(--amber)">0.000</strong></div>
+        <div>Remaining: <strong id="remaining-1" style="color:var(--amber)">0.000</strong></div>
+      </div>
+    </div>
+
+    <div class="card-body-flush table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Container</th><th>Lot</th><th>ODA</th><th>B/L</th>
+            <th>Depot</th><th class="num">Available MT</th><th class="num">Draw MT</th><th></th>
+          </tr>
+        </thead>
+        <tbody id="alloc-rows-1">
+          {% for c in lot_containers or [] %}
+          <tr>
+            <input type="hidden" name="alloc_container_id_{{ loop.index0 }}" value="{{ c.id }}">
+            <input type="hidden" name="alloc_shipment_id_{{ loop.index0 }}" value="{{ c.shipment_id }}">
+            <input type="hidden" name="alloc_lot_{{ loop.index0 }}" value="{{ c.production_lot }}">
+            <input type="hidden" name="alloc_purchase_price_{{ loop.index0 }}" value="{{ c.purchase_price or 0 }}">
+            <td class="mono">{{ c.container_code or '—' }}</td>
+            <td class="mono">{{ c.production_lot or '—' }}</td>
+            <td class="mono">{{ c.oda_code }}</td>
+            <td class="mono muted">{{ c.bl_number or '—' }}</td>
+            <td class="muted">{{ c.facility_code or '—' }}</td>
+            <td class="num">{{ "%.3f"|format(c.available_mt or 0) }}</td>
+            <td class="num">
+              <input type="number" name="alloc_draw_mt_{{ loop.index0 }}"
+                step="0.001" min="0" max="{{ c.available_mt + 0.001 }}"
+                class="draw-input-1" style="width:90px;text-align:right"
+                oninput="updateBalance(1)">
+            </td>
+            <td><button type="button" class="btn btn-sm btn-ghost" style="color:var(--red)"
+              onclick="removeRow(this,1)">×</button></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <input type="hidden" name="alloc_num_rows" id="alloc-num-rows-1"
+      value="{{ (lot_containers or [])|length }}">
+
+    <div class="card-body" style="border-top:1px solid var(--border)">
+      <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+        <select id="add-select-1" style="min-width:280px">
+          <option value="">— select container —</option>
+          {% for c in all_available or [] %}
+          {% if c.id not in (matched_lot_ids or []) %}
+          <option value="{{ c.id }}"
+            data-lot="{{ c.production_lot or '' }}" data-oda="{{ c.oda_code }}"
+            data-bl="{{ c.bl_number or '' }}" data-facility="{{ c.facility_code or '' }}"
+            data-available="{{ c.available_mt }}" data-shipment="{{ c.shipment_id }}"
+            data-price="{{ c.purchase_price or 0 }}">
+            {{ c.container_code or '—' }} | {{ c.production_lot or 'no lot' }} | {{ "%.3f"|format(c.available_mt) }} MT
+          </option>
+          {% endif %}
+          {% endfor %}
+        </select>
+        <input type="number" id="add-mt-1" step="0.001" placeholder="0.000" style="width:90px">
+        <button type="button" class="btn btn-ghost btn-sm" onclick="addRow(1)">+ Add</button>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="form-actions">
+    <a href="{{ url_for('sales_parse.parse_sales_ddt') }}" class="btn btn-ghost">← Back</a>
+    <button type="submit" class="btn btn-primary">Confirm & Mark EXECUTED</button>
+  </div>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function updateBalance(idx) {
+  const ddtInput = document.querySelector(`.ddt-mt-input[data-idx="${idx}"]`);
+  const ddt = parseFloat(ddtInput ? ddtInput.value || 0 : 0);
+  let total = 0;
+  document.querySelectorAll(`.draw-input-${idx}`).forEach(inp => {
+    total += parseFloat(inp.value || 0);
+  });
+  const rem = ddt - total;
+  document.getElementById(`ddt-total-${idx}`).textContent = ddt.toFixed(3);
+  document.getElementById(`allocated-${idx}`).textContent = total.toFixed(3);
+  const remEl = document.getElementById(`remaining-${idx}`);
+  remEl.textContent = rem.toFixed(3);
+  remEl.style.color = Math.abs(rem) < 0.001 ? 'var(--green)' : rem < 0 ? 'var(--red)' : 'var(--amber)';
+  document.getElementById(`allocated-${idx}`).style.color =
+    Math.abs(rem) < 0.001 ? 'var(--green)' : 'var(--amber)';
+}
+
+function addRow(idx) {
+  const sel = document.getElementById(`add-select-${idx}`);
+  const drawMt = parseFloat(document.getElementById(`add-mt-${idx}`).value || 0);
+  if (!sel.value || drawMt <= 0) {
+    alert('Select a container and enter MT to draw.');
+    return;
+  }
+  const opt = sel.options[sel.selectedIndex];
+  const numRowsEl = document.getElementById(`alloc-num-rows-${idx}`);
+  const j = parseInt(numRowsEl.value);
+
+  const tbody = document.getElementById(`alloc-rows-${idx}`);
+  const tr = document.createElement('tr');
+  tr.className = `alloc-row-${idx}`;
+  tr.innerHTML = `
+    <input type="hidden" name="alloc_${idx}_container_id_${j}" value="${sel.value}">
+    <input type="hidden" name="alloc_${idx}_shipment_id_${j}" value="${opt.dataset.shipment}">
+    <input type="hidden" name="alloc_${idx}_lot_${j}" value="${opt.dataset.lot}">
+    <input type="hidden" name="alloc_${idx}_purchase_price_${j}" value="${opt.dataset.price}">
+    <td class="mono">${opt.text.split('|')[0].trim()}</td>
+    <td class="mono">${opt.dataset.lot || '—'}</td>
+    <td class="mono">${opt.dataset.oda}</td>
+    <td class="mono muted">${opt.dataset.bl || '—'}</td>
+    <td class="muted">${opt.dataset.facility || '—'}</td>
+    <td class="num">${parseFloat(opt.dataset.available).toFixed(3)}</td>
+    <td class="num">
+      <input type="number" name="alloc_${idx}_draw_mt_${j}" step="0.001"
+        min="0" max="${(parseFloat(opt.dataset.available) + 0.001).toFixed(3)}"
+        class="draw-input-${idx}" style="width:90px;text-align:right"
+        value="${drawMt.toFixed(3)}" oninput="updateBalance(${idx})">
+    </td>
+    <td><button type="button" class="btn btn-sm btn-ghost" style="color:var(--red)"
+      onclick="removeRow(this,${idx})">×</button></td>
+  `;
+  tbody.appendChild(tr);
+  numRowsEl.value = j + 1;
+  opt.remove();
+  sel.value = '';
+  document.getElementById(`add-mt-${idx}`).value = '';
+  updateBalance(idx);
+}
+
+function removeRow(btn, idx) {
+  btn.closest('tr').remove();
+  updateBalance(idx);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  // Init balance for each section
+  document.querySelectorAll('.ddt-mt-input').forEach(inp => {
+    updateBalance(parseInt(inp.dataset.idx));
+  });
+});
+</script>
+{% endblock %}

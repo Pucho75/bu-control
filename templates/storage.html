@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block title %}Storage{% endblock %}
+{% block page_title %}Storage{% endblock %}
+
+{% block main_content %}
+<div class="dash-grid">
+
+  <div class="card">
+    <div class="card-header"><span class="card-title">Live Storage Balances</span>
+      <span class="text-muted" style="font-size:12px">From container records</span>
+    </div>
+    <div class="card-body-flush table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Facility</th>
+            <th>Product</th>
+            <th class="num">Containers</th>
+            <th class="num">Gross MT</th>
+            <th class="num">Available MT</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for b in live_balances %}
+          <tr>
+            <td class="mono">{{ b.facility_code }} <span class="text-muted">{{ b.facility_name }}</span></td>
+            <td class="mono">{{ b.product_code }}</td>
+            <td class="num">{{ b.num_containers }}</td>
+            <td class="num">{{ "%.3f"|format(b.gross_mt or 0) }}</td>
+            <td class="num" style="font-weight:500">{{ "%.3f"|format(b.available_mt or 0) }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="5"><div class="empty-state">No containers in storage</div></td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><span class="card-title">Post Confirmed Statement</span></div>
+    <div class="card-body">
+      <form method="POST" action="{{ url_for('post_statement') }}">
+        <div class="form-group">
+          <label>Facility</label>
+          <select name="storage_facility_id" required>
+            <option value="">— select —</option>
+            {% for f in facilities %}
+            <option value="{{ f.id }}">{{ f.code }} — {{ f.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Product</label>
+          <select name="product_id" required>
+            <option value="">— select —</option>
+            {% for p in products %}
+            <option value="{{ p.id }}">{{ p.code }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Statement Date</label>
+            <input type="date" name="statement_date" required>
+          </div>
+          <div class="form-group">
+            <label>Confirmed MT</label>
+            <input type="number" name="confirmed_mt" step="0.001" required>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Notes</label>
+          <input type="text" name="notes">
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary">Post Statement</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="card card-wide">
+    <div class="card-header"><span class="card-title">Statement History</span></div>
+    <div class="card-body-flush table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Facility</th>
+            <th>Product</th>
+            <th class="num">Confirmed MT</th>
+            <th>Posted By</th>
+            <th>Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in statements %}
+          <tr>
+            <td class="mono">{{ s.statement_date }}</td>
+            <td>{{ s.facility_name }}</td>
+            <td class="mono">{{ s.product_code }}</td>
+            <td class="num">{{ "%.3f"|format(s.confirmed_mt) }}</td>
+            <td class="muted">{{ s.posted_by }}</td>
+            <td class="muted">{{ s.notes or '—' }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="6"><div class="empty-state">No statements posted yet</div></td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}New Sale — Step 1{% endblock %}
+{% block page_title %}New Sale{% endblock %}
+
+{% block main_content %}
+<div class="wizard-steps">
+  <div class="wizard-step active"><span class="step-num">1</span> Commercial</div>
+  <div class="wizard-step"><span class="step-num">2</span> Transport</div>
+  <div class="wizard-step"><span class="step-num">3</span> Lot Assignment</div>
+</div>
+
+<div class="card" style="max-width:680px">
+  <div class="card-header"><span class="card-title">Commercial Details</span></div>
+  <div class="card-body">
+    <form method="POST">
+      <input type="hidden" name="step" value="1">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Customer</label>
+          <select name="customer_id" required>
+            <option value="">— select —</option>
+            {% for c in customers %}
+            <option value="{{ c.id }}">{{ c.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Product</label>
+          <select name="product_id" required>
+            <option value="">— select —</option>
+            {% for p in products %}
+            <option value="{{ p.id }}">{{ p.code }} — {{ p.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Provisional MT</label>
+          <input type="number" name="provisional_mt" step="0.001" required>
+        </div>
+        <div class="form-group">
+          <label>Provisional Date</label>
+          <input type="date" name="provisional_date" required value="{{ now.strftime('%Y-%m-%d') }}">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Price €/MT</label>
+          <input type="number" name="price_eur_per_mt" step="0.01" required>
+        </div>
+        <div class="form-group">
+          <label>Price USD/MT <span class="text-muted">(optional)</span></label>
+          <input type="number" name="price_usd_per_mt" step="0.01">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Incoterm</label>
+          <select name="incoterm" required>
+            <option value="DAP">DAP</option>
+            <option value="EXW">EXW</option>
+            <option value="FCA">FCA</option>
+            <option value="CPT">CPT</option>
+            <option value="CIF">CIF</option>
+            <option value="FOB">FOB</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Destination</label>
+          <input type="text" name="destination" required>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Storage Origin</label>
+        <select name="storage_facility_id" required>
+          <option value="">— select —</option>
+          {% for f in facilities %}
+          <option value="{{ f.id }}">{{ f.code }} — {{ f.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-actions">
+        <a href="{{ url_for('sales_pipeline') }}" class="btn btn-ghost">Cancel</a>
+        <button type="submit" class="btn btn-primary">Next →</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

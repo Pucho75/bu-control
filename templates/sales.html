@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Sales{% endblock %}
+{% block page_title %}Sales Pipeline{% endblock %}
+{% block header_actions %}
+  {% if can('can_enter_sales') %}
+  <a href="{{ url_for('sale_new') }}" class="btn btn-primary">+ New Sale</a>
+  {% endif %}
+{% endblock %}
+
+{% block main_content %}
+<div class="card">
+  <div class="card-body-flush table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Sale</th>
+          <th>Customer</th>
+          <th>Product</th>
+          <th>Incoterm</th>
+          <th class="num">MT Est.</th>
+          <th class="num">MT Actual</th>
+          {% if can('sees_prices') %}<th class="num">Price €/MT</th>{% endif %}
+          <th>Status</th>
+          <th>Prov. Date</th>
+          <th>DDT Date</th>
+          <th>FIFO</th>
+          <th></th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in sales %}
+        <tr>
+          <td class="mono">{{ s.sale_code }}</td>
+          <td>{{ s.customer }}</td>
+          <td class="mono">{{ s.product }}</td>
+          <td class="mono">{{ s.incoterm }}</td>
+          <td class="num">{{ "%.2f"|format(s.provisional_mt or 0) }}</td>
+          <td class="num">{% if s.actual_mt %}{{ "%.3f"|format(s.actual_mt) }}{% else %}<span class="text-muted">—</span>{% endif %}</td>
+          {% if can('sees_prices') %}
+          <td class="num">{{ "%.2f"|format(s.price_eur_per_mt or 0) }}</td>
+          {% endif %}
+          <td><span class="pill pill-{{ s.status | lower }}">{{ s.status }}</span></td>
+          <td class="muted mono">{{ s.provisional_date or '—' }}</td>
+          <td class="muted mono">{{ s.ddt_load_date or '—' }}</td>
+          <td>
+            {% if s.fifo_assigned %}
+              <span class="pill pill-complete">✓</span>
+            {% else %}
+              <span class="pill pill-pending">Pending</span>
+            {% endif %}
+          </td>
+          {% if current_role in ['CEO', 'LOGISTICS_ADMIN'] and s.status == 'EXECUTED' %}
+          <td>
+            <form method="POST" action="{{ url_for('sale_reset', sale_id=s.id) }}"
+                  onsubmit="return confirm('Reset this sale to PROVISIONAL? This will undo lot assignment.')">
+              <button class="btn btn-sm btn-ghost" style="color:var(--red)">Reset</button>
+            </form>
+          </td>
+          <td>
+            <form method="POST" action="{{ url_for('sale_delete_ddt', sale_id=s.id) }}"
+                  onsubmit="return confirm('Clear DDT and reset to INSTRUCTED?')">
+              <button class="btn btn-sm btn-ghost" style="color:var(--amber)">Clear DDT</button>
+            </form>
+          </td>
+          {% elif current_role in ['CEO', 'LOGISTICS_ADMIN'] and s.status in ['PROVISIONAL', 'INSTRUCTED'] %}
+          <td>
+            <form method="POST" action="{{ url_for('sale_delete', sale_id=s.id) }}"
+                  onsubmit="return confirm('Delete this sale entirely?')">
+              <button class="btn btn-sm btn-ghost" style="color:var(--red)">Delete</button>
+            </form>
+          </td>
+          <td></td>
+          {% else %}
+          <td></td><td></td>
+          {% endif %}
+        </tr>
+        {% else %}
+        <tr><td colspan="12"><div class="empty-state"><div class="empty-icon">◐</div>No sales yet</div></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

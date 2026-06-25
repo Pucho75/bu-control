@@ -1,0 +1,262 @@
+{% extends "base.html" %}
+{% block title %}ODA {{ oda.oda_code }}{% endblock %}
+{% block page_title %}{{ oda.oda_code }}{% endblock %}
+{% block header_actions %}
+  <a href="{{ url_for('oda_status') }}" class="btn btn-ghost">← All Orders</a>
+  {% if current_role in ['CEO', 'LOGISTICS_ADMIN'] %}
+  <form method="POST" action="{{ url_for('oda_delete', oda_id=oda.id) }}"
+        onsubmit="return confirm('Delete this ODA and all its B/Ls and containers? This cannot be undone.')">
+    <button class="btn btn-sm btn-ghost" style="color:var(--red)">Delete ODA</button>
+  </form>
+  {% endif %}
+{% endblock %}
+
+{% block main_content %}
+
+{# ── ODA Header ── #}
+<div class="card" style="margin-bottom:20px">
+  <div class="card-body">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:20px">
+      <div>
+        <div class="metric-label">Supplier</div>
+        <div style="font-weight:500;margin-top:4px">{{ oda.supplier_name }}</div>
+      </div>
+      <div>
+        <div class="metric-label">Product</div>
+        <div class="mono" style="font-weight:500;margin-top:4px">{{ oda.product_code }}</div>
+      </div>
+      <div>
+        <div class="metric-label">Order Date</div>
+        <div class="mono" style="margin-top:4px">{{ oda.order_date }}</div>
+      </div>
+      <div>
+        <div class="metric-label">Incoterm</div>
+        <div class="mono" style="margin-top:4px">{{ oda.get('incoterm_full') or oda.get('incoterm') or '—' }}</div>
+      </div>
+      <div>
+        <div class="metric-label">Customs Regime</div>
+        <div class="mono" style="margin-top:4px">
+          {% set regime = oda.get('customs_regime') %}
+          {% if regime %}
+            <span class="pill pill-{{ 'pending' if regime == 'T1' else 'complete' }}">{{ regime }}</span>
+          {% else %}—{% endif %}
+        </div>
+      </div>
+      <div>
+        <div class="metric-label">VAT</div>
+        <div class="mono" style="margin-top:4px">
+          {% set vr = oda.get('vat_rate') %}
+          {{ vr|int if vr is not none else '—' }}{% if vr is not none %}%{% endif %}
+        </div>
+      </div>
+      <div>
+        <div class="metric-label">Country</div>
+        <div class="mono" style="margin-top:4px">{{ oda.paese or '—' }}</div>
+      </div>
+      <div>
+        <div class="metric-label">Currency</div>
+        <div class="mono" style="margin-top:4px">{{ oda.currency }}</div>
+      </div>
+      {% if can('sees_prices') %}
+      <div>
+        <div class="metric-label">Price/MT</div>
+        <div class="mono" style="margin-top:4px">
+          {% if oda.price_usd_per_mt %}{{ "%.2f"|format(oda.price_usd_per_mt) }} USD{% endif %}
+          {% if oda.price_eur_per_mt %}/ {{ "%.2f"|format(oda.price_eur_per_mt) }} EUR{% endif %}
+        </div>
+      </div>
+      {% endif %}
+      <div>
+        <div class="metric-label">Total MT</div>
+        <div style="font-weight:500;margin-top:4px">{{ "%.2f"|format(oda.total_mt) }}</div>
+      </div>
+      <div>
+        <div class="metric-label">Exp. Delivery</div>
+        <div class="mono" style="margin-top:4px">{{ oda.expected_delivery_month or '—' }}</div>
+      </div>
+      <div>
+        <div class="metric-label">Status</div>
+        <div style="margin-top:4px">
+          {% if oda.is_closed %}
+            <span class="pill pill-complete">CLOSED</span>
+          {% else %}
+            <span class="pill pill-in-transit">OPEN</span>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ── Summary badges ── #}
+<div class="dash-grid" style="margin-bottom:20px">
+  <div class="card">
+    <div class="card-header"><span class="card-title">Containers</span></div>
+    <div class="metric-grid">
+      <div class="metric">
+        <div class="metric-label">Expected</div>
+        <div class="metric-value">{{ oda.num_containers or '—' }}</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">On B/Ls</div>
+        <div class="metric-value">{{ summary.ctrs_total }}</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">At Depot</div>
+        <div class="metric-value {% if summary.ctrs_arrived == summary.ctrs_total and summary.ctrs_total > 0 %}positive{% endif %}">
+          {{ summary.ctrs_arrived }}
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-header"><span class="card-title">Documentation</span></div>
+    <div class="metric-grid">
+      <div class="metric">
+        <div class="metric-label">B/Ls</div>
+        <div class="metric-value">{{ summary.bl_count }}</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">COAs</div>
+        <div class="metric-value {% if summary.coas_received == summary.ctrs_total and summary.ctrs_total > 0 %}positive{% endif %}">
+          {{ summary.coas_received }}/{{ summary.ctrs_total }}
+        </div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Cleared</div>
+        <div class="metric-value {% if summary.ctrs_cleared == summary.ctrs_total and summary.ctrs_total > 0 %}positive{% endif %}">
+          {{ summary.ctrs_cleared }}/{{ summary.ctrs_total }}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ── ODA Delivery Lines (commercial schedule) ── #}
+<div class="card" style="margin-bottom:20px">
+  <div class="card-header"><span class="card-title">Delivery Schedule (ODA Lines)</span></div>
+  <div class="card-body-flush table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th class="num">MT Planned</th>
+          {% if can('sees_prices') %}<th class="num">Price/MT</th>{% endif %}
+          <th>Container Type</th>
+          <th class="num">N. Containers</th>
+          <th>Scheduled Date</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for l in oda_lines %}
+        <tr>
+          <td class="mono">{{ l.line_number }}</td>
+          <td class="num">{{ "%.2f"|format(l.mt_planned) }}</td>
+          {% if can('sees_prices') %}
+          <td class="num">{{ "%.2f"|format(l.price_per_mt) if l.price_per_mt else '—' }}</td>
+          {% endif %}
+          <td class="mono">{{ l.container_type or '—' }}</td>
+          <td class="num">{{ l.num_containers or '—' }}</td>
+          <td class="muted mono">{{ l.scheduled_date or '—' }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6"><div class="empty-state">No delivery lines</div></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{# ── Shipments / B/Ls ── #}
+<div class="card" style="margin-bottom:20px">
+  <div class="card-header"><span class="card-title">Shipments & B/Ls</span></div>
+  <div class="card-body-flush table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>B/L Number</th>
+          <th>On Board Date</th>
+          <th>Vessel</th>
+          <th>Voyage</th>
+          <th>Port of Loading</th>
+          <th>Port of Discharge</th>
+          {% if current_role in ['CEO', 'LOGISTICS_ADMIN'] %}<th></th>{% endif %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in shipments %}
+        <tr>
+          <td class="mono">{{ s.shipment_number }}</td>
+          <td class="mono">{{ s.bl_number or '—' }}</td>
+          <td class="muted mono">{{ s.bl_date or '—' }}</td>
+          <td>{{ s.vessel_name or '—' }}</td>
+          <td class="mono muted">{{ s.voyage_ref or '—' }}</td>
+          <td class="muted">{{ s.port_of_loading or '—' }}</td>
+          <td class="muted">{{ s.port_of_discharge or '—' }}</td>
+          {% if current_role in ['CEO', 'LOGISTICS_ADMIN'] %}
+          <td>
+            <form method="POST" action="{{ url_for('shipment_delete', shipment_id=s.id) }}"
+                  onsubmit="return confirm('Delete this B/L and its containers?')">
+              <button class="btn btn-sm btn-ghost" style="color:var(--red)">Delete</button>
+            </form>
+          </td>
+          {% endif %}
+        </tr>
+        {% else %}
+        <tr><td colspan="7"><div class="empty-state">No B/Ls imported yet</div></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{# ── Containers ── #}
+<div class="card">
+  <div class="card-header"><span class="card-title">Containers</span></div>
+  <div class="card-body-flush table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Container</th>
+          <th>B/L</th>
+          <th>Type</th>
+          <th class="num">MT</th>
+          <th>Batch</th>
+          <th>COA</th>
+          <th>Clearance</th>
+          <th>Depot</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in containers %}
+        <tr>
+          <td class="mono">{{ c.container_code }}</td>
+          <td class="mono muted">{{ c.bl_number or '—' }}</td>
+          <td class="mono">{{ c.container_type }}</td>
+          <td class="num">{{ "%.2f"|format(c.actual_mt or c.nominal_mt or 0) }}</td>
+          <td class="mono">{{ c.production_lot or '—' }}</td>
+          <td>
+            {% if c.production_lot %}
+              <span class="pill pill-complete">✓</span>
+              {% if c.manufacture_date %}<span class="muted" style="font-size:10px"> mfg {{ c.manufacture_date }}</span>{% endif %}
+            {% else %}
+              <span class="pill pill-pending">pending</span>
+            {% endif %}
+          </td>
+          <td class="mono muted">{{ c.customs_clearance_date or '—' }}</td>
+          <td class="mono muted">{{ c.facility_code or '—' }}</td>
+          <td>
+            <span class="pill pill-{{ c.status|lower|replace('_','-') }}">{{ c.status }}</span>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="9"><div class="empty-state">No containers yet — import B/L first</div></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% endblock %}

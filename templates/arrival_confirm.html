@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}Confirm Arrival{% endblock %}
+{% block page_title %}Confirm Arrival Notice{% endblock %}
+
+{% block main_content %}
+<form method="POST" action="{{ url_for('arrival.arrival_confirm') }}">
+  <input type="hidden" name="num_containers" value="{{ matched|length }}">
+
+  <div class="card" style="margin-bottom:20px">
+    <div class="card-header"><span class="card-title">Extracted Details</span></div>
+    <div class="card-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Arrival Date</label>
+          <input type="date" name="arrival_date"
+            value="{{ extracted.arrival_date or today }}" required>
+        </div>
+        <div class="form-group">
+          <label>Port of Discharge</label>
+          <input type="text" name="port_of_discharge"
+            value="{{ extracted.port_of_discharge or '' }}" readonly
+            style="color:var(--text-secondary)">
+        </div>
+        <div class="form-group">
+          <label>Reference</label>
+          <input type="text" name="reference"
+            value="{{ extracted.reference or '' }}" readonly
+            style="color:var(--text-secondary)">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:20px">
+    <div class="card-header">
+      <span class="card-title">Containers</span>
+      <span class="text-muted" style="font-size:12px">{{ matched|length }} extracted</span>
+    </div>
+    <div class="card-body-flush table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Container Code</th>
+            <th>Status in DB</th>
+            <th>Match</th>
+            <th class="num">Weight KG</th>
+            <th>Include</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for i, m in matched|enumerate %}
+          <tr>
+            <td class="mono">{{ i + 1 }}</td>
+            <td class="mono">{{ m.container_code or '—' }}</td>
+            <td>
+              {% if m.current_status %}
+                <span class="pill pill-{{ m.current_status|lower|replace('_','-') }}">{{ m.current_status }}</span>
+              {% else %}—{% endif %}
+            </td>
+            <td>
+              {% if m.found %}
+                <span class="pill pill-complete">✓ matched</span>
+                <input type="hidden" name="container_id_{{ i }}" value="{{ m.container_id }}">
+              {% else %}
+                <span class="pill pill-pending">not found</span>
+              {% endif %}
+            </td>
+            <td class="num">{{ "{:,.0f}".format(m.gross_weight_kg) if m.gross_weight_kg else '—' }}</td>
+            <td>
+              {% if m.found %}
+                <input type="checkbox" name="include_{{ i }}" value="1" checked>
+              {% else %}—{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  {% set unmatched = matched|selectattr('found', 'equalto', false)|list %}
+  {% if unmatched %}
+  <div class="alert alert-warning" style="margin-bottom:20px">
+    {{ unmatched|length }} container(s) not found in DB — they will be skipped.
+    Make sure the B/L has been imported first.
+  </div>
+  {% endif %}
+
+  <div class="form-actions">
+    <a href="{{ url_for('arrival.arrival') }}" class="btn btn-ghost">← Re-upload</a>
+    <button type="submit" class="btn btn-primary">Confirm Arrival</button>
+  </div>
+</form>
+{% endblock %}

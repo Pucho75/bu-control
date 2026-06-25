@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+{% block title %}Confirm B/L{% endblock %}
+{% block page_title %}Confirm B/L Import{% endblock %}
+
+{% block main_content %}
+{% if queue_remaining and queue_remaining > 1 %}
+<div class="alert alert-warning" style="margin-bottom:16px">
+  Processing {{ queue_remaining }} B/L(s) — confirm this one to continue to the next.
+</div>
+{% endif %}
+<form method="POST" action="{{ url_for('parse_docs.parse_bl_confirm') }}">
+  <input type="hidden" name="num_containers" value="{{ extracted.containers|length }}">
+
+  {# ── B/L Header ── #}
+  <div class="card" style="margin-bottom:20px">
+    <div class="card-header"><span class="card-title">Bill of Lading Details</span></div>
+    <div class="card-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label>B/L Number</label>
+          <input type="text" name="bl_number" value="{{ extracted.bl_number or '' }}" required>
+        </div>
+        <div class="form-group">
+          <label>Date on Board</label>
+          <input type="date" name="bl_date" value="{{ extracted.bl_date or '' }}" required>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Vessel</label>
+          <input type="text" name="vessel_name" value="{{ extracted.vessel_name or '' }}" required>
+        </div>
+        <div class="form-group">
+          <label>Voyage</label>
+          <input type="text" name="voyage_ref" value="{{ extracted.voyage_ref or '' }}">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Port of Loading</label>
+          <input type="text" name="port_of_loading" value="{{ extracted.port_of_loading or '' }}">
+        </div>
+        <div class="form-group">
+          <label>Port of Discharge</label>
+          <input type="text" name="port_of_discharge" value="{{ extracted.port_of_discharge or '' }}">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Link to ODA</label>
+        <select name="oda_id" required id="oda-select">
+          <option value="">— select ODA —</option>
+          {% for o in odas %}
+          <option value="{{ o.id }}"
+            {% if matched_oda_id == o.id %}selected{% endif %}>
+            {{ o.oda_code }} — {{ o.supplier_name }}
+          </option>
+          {% endfor %}
+        </select>
+        {% if extracted.oda_reference %}
+        <div style="margin-top:6px;font-size:12px;color:var(--text-secondary)">
+          Detected ODA reference: <span class="mono">{{ extracted.oda_reference }}</span>
+          {% if matched_oda_id %}— <span style="color:var(--green)">matched ✓</span>
+          {% else %}— <span style="color:var(--amber)">not found, please select manually</span>{% endif %}
+        </div>
+        {% endif %}
+      </div>
+
+      {% if matched_shipments %}
+      <div class="form-group">
+        <label>Shipment Line — select which line this B/L covers</label>
+        <select name="shipment_id">
+          <option value="">— auto (next unlinked) —</option>
+          {% for s in matched_shipments %}
+          <option value="{{ s.id }}"
+            {% if not s.bl_number and loop.first %}selected{% endif %}>
+            Line {{ s.shipment_number }}
+            {% if s.bl_date %}— {{ s.bl_date }}{% endif %}
+            {% if s.bl_number %}— ⚠ already has B/L {{ s.bl_number }}{% endif %}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  {# ── Containers ── #}
+  <div class="card" style="margin-bottom:20px">
+    <div class="card-header">
+      <span class="card-title">Containers</span>
+      <span class="text-muted" style="font-size:12px">{{ extracted.containers|length }} extracted</span>
+    </div>
+    <div class="card-body-flush table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Container Code</th>
+            <th>Type</th>
+            <th class="num">Nominal MT</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for i, c in extracted.containers|enumerate %}
+          {% set n = i + 1 %}
+          <tr>
+            <td class="mono">{{ n }}</td>
+            <td>
+              <input type="text" name="container_code_{{ n }}"
+                value="{{ c.container_code or '' }}" required
+                style="font-family:var(--font-mono);width:140px">
+            </td>
+            <td>
+              <select name="container_type_{{ n }}">
+                <option value="ISOTANK" {% if c.container_type == 'ISOTANK' %}selected{% endif %}>ISOTANK</option>
+                <option value="ONE_TON_CUBE" {% if c.container_type == 'ONE_TON_CUBE' %}selected{% endif %}>IBC</option>
+              </select>
+            </td>
+            <td class="num">
+              <input type="number" name="nominal_mt_{{ n }}" step="0.001"
+                value="{{ c.nominal_mt or 23 }}" style="width:80px;text-align:right">
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="form-actions">
+    <a href="{{ url_for('parse_docs.parse_bl') }}" class="btn btn-ghost">← Re-upload</a>
+    <button type="submit" class="btn btn-primary">Confirm & Save B/L</button>
+  </div>
+</form>
+{% endblock %}

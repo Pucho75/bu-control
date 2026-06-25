@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Orders{% endblock %}
+{% block page_title %}Purchase Orders (ODA){% endblock %}
+{% block main_content %}
+<div class="card">
+  <div class="card-body-flush table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>ODA Code</th>
+          <th>Supplier</th>
+          <th>Product</th>
+          <th class="num">Total MT</th>
+          {% if can('sees_prices') %}
+          <th class="num">Price €/MT</th>
+          <th class="num">Price USD/MT</th>
+          <th class="num">FX Rate</th>
+          {% endif %}
+          <th>Order Date</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for o in odas %}
+        <tr>
+          <td class="mono">{{ o.oda_code }}</td>
+          <td>{{ o.supplier_name }}</td>
+          <td class="mono">{{ o.product_code }}</td>
+          <td class="num">{{ "%.2f"|format(o.total_mt) }}</td>
+          {% if can('sees_prices') %}
+          <td class="num">{{ "%.2f"|format(o.price_eur_per_mt) }}</td>
+          <td class="num">{% if o.price_usd_per_mt %}{{ "%.2f"|format(o.price_usd_per_mt) }}{% else %}—{% endif %}</td>
+          <td class="num mono">{% if o.exchange_rate %}{{ "%.4f"|format(o.exchange_rate) }}{% else %}—{% endif %}</td>
+          {% endif %}
+          <td class="muted mono">{{ o.order_date }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="8"><div class="empty-state"><div class="empty-icon">◫</div>No orders yet</div></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% block title %}COA Assignment{% endblock %}
+{% block page_title %}COA Manual Assignment{% endblock %}
+
+{% block main_content %}
+
+{# ── Filters ── #}
+<div class="card" style="margin-bottom:20px">
+  <div class="card-body">
+    <form method="GET" style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">
+      <div class="form-group" style="margin:0;flex:0 0 160px">
+        <label>Product</label>
+        <select name="product_id" onchange="this.form.submit()">
+          <option value="">— all —</option>
+          {% for p in products %}
+          <option value="{{ p.id }}" {% if product_filter == p.id|string %}selected{% endif %}>{{ p.code }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group" style="margin:0;flex:1 1 200px">
+        <label>Shipment / B/L</label>
+        <select name="shipment_id" onchange="this.form.submit()">
+          <option value="">— all —</option>
+          {% for s in shipments %}
+          <option value="{{ s.id }}" {% if shipment_filter == s.id|string %}selected{% endif %}>
+            {{ s.oda_code }} / {{ s.bl_number or s.ddt_number or 'shipment ' + s.shipment_number|string }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group" style="margin:0">
+        <label>Show</label>
+        <select name="unassigned" onchange="this.form.submit()">
+          <option value="1" {% if unassigned_only == '1' %}selected{% endif %}>Unassigned only</option>
+          <option value="0" {% if unassigned_only == '0' %}selected{% endif %}>All containers</option>
+        </select>
+      </div>
+      <a href="{{ url_for('ops.coa_assign') }}" class="btn btn-ghost btn-sm">Clear</a>
+    </form>
+  </div>
+</div>
+
+{% if containers %}
+<form method="POST">
+  <div class="card" style="margin-bottom:20px">
+    <div class="card-header">
+      <span class="card-title">Select Containers</span>
+      <span class="text-muted" style="font-size:12px">{{ containers|length }} container(s)</span>
+    </div>
+    <div class="card-body-flush table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th><input type="checkbox" id="select-all" onchange="toggleAll(this)"></th>
+            <th>Container</th>
+            <th>ODA</th>
+            <th>B/L / DDT</th>
+            <th>Supplier</th>
+            <th>Product</th>
+            <th class="num">MT</th>
+            <th>Current Batch</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for c in containers %}
+          <tr>
+            <td><input type="checkbox" name="container_id" value="{{ c.id }}" class="ctr-checkbox"></td>
+            <td class="mono">{{ c.container_code or '—' }}</td>
+            <td class="mono">{{ c.oda_code }}</td>
+            <td class="mono muted">{{ c.bl_number or c.ddt_number or '—' }}</td>
+            <td>{{ c.supplier_name }}</td>
+            <td class="mono">{{ c.product_code }}</td>
+            <td class="num">{{ "%.3f"|format(c.actual_mt or c.nominal_mt or 0) }}</td>
+            <td class="mono">
+              {% if c.production_lot %}
+                <span style="color:var(--green)">{{ c.production_lot }}</span>
+              {% else %}
+                <span class="text-muted">—</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:20px">
+    <div class="card-header"><span class="card-title">COA Data to Apply</span></div>
+    <div class="card-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Production Batch / Lot</label>
+          <input type="text" name="production_lot" placeholder="e.g. 20738" required
+            style="font-family:var(--font-mono)">
+        </div>
+        <div class="form-group">
+          <label>COA Issue Date</label>
+          <input type="date" name="coa_date">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Manufacture Date</label>
+          <input type="date" name="manufacture_date">
+        </div>
+        <div class="form-group">
+          <label>Expiration Date</label>
+          <input type="date" name="expiration_date">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="form-actions">
+    <button type="submit" class="btn btn-primary">Apply COA to Selected Containers</button>
+  </div>
+</form>
+{% else %}
+<div class="card">
+  <div class="card-body">
+    <div class="empty-state">
+      <div class="empty-icon">◎</div>
+      No containers found — try adjusting filters
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleAll(cb) {
+  document.querySelectorAll('.ctr-checkbox').forEach(c => c.checked = cb.checked);
+}
+</script>
+{% endblock %}

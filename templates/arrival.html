@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}Record Arrival{% endblock %}
+{% block page_title %}Record Vessel Arrival{% endblock %}
+
+{% block main_content %}
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start">
+
+  {# ── PDF Upload ── #}
+  <div class="card">
+    <div class="card-header"><span class="card-title">Upload Avviso Arrivo Merce</span></div>
+    <div class="card-body">
+      <p style="color:var(--text-secondary);margin-bottom:16px;line-height:1.6;font-size:13px">
+        Upload the PDF arrival notice from L'Unione del Porto or your port agent.
+        Claude will extract the arrival date and container list automatically.
+      </p>
+      <form method="POST" enctype="multipart/form-data">
+        <input type="hidden" name="mode" value="pdf">
+        <div class="form-group">
+          <label>Arrival Notice (PDF or image)</label>
+          <input type="file" name="document" accept=".pdf,.png,.jpg,.jpeg" required>
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary">Extract →</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  {# ── Manual Entry ── #}
+  <div class="card">
+    <div class="card-header"><span class="card-title">Manual Arrival Entry</span></div>
+    <div class="card-body">
+      <form method="POST">
+        <input type="hidden" name="mode" value="manual">
+        <div class="form-group">
+          <label>Arrival Date</label>
+          <input type="date" name="arrival_date" value="{{ today }}" required>
+        </div>
+        <div class="form-group">
+          <label>Select Vessel / Containers</label>
+          {% for vessel_key, ctrs in vessels_map.items() %}
+          <div style="margin-bottom:12px">
+            <div style="font-size:12px;font-weight:500;color:var(--text-secondary);margin-bottom:6px;font-family:var(--font-mono)">
+              {{ vessel_key }}
+              <label style="margin-left:8px;font-weight:normal;cursor:pointer;font-family:var(--font-sans)">
+                <input type="checkbox" onchange="toggleGroup(this)"> select all
+              </label>
+            </div>
+            {% for c in ctrs %}
+            <label style="display:flex;align-items:center;gap:8px;padding:4px 0;font-family:var(--font-sans);font-size:12px;cursor:pointer">
+              <input type="checkbox" name="container_id" value="{{ c.id }}" class="group-ctr">
+              <span class="mono">{{ c.container_code or '—' }}</span>
+              <span class="text-muted">{{ c.oda_code }} · {{ c.product_code }} · {{ "%.1f"|format(c.mt or 0) }} MT</span>
+              {% if c.eta_date %}
+              <span class="text-muted" style="font-size:10px">ETA {{ c.eta_date }}</span>
+              {% endif %}
+            </label>
+            {% endfor %}
+          </div>
+          {% else %}
+          <div class="empty-state" style="padding:20px 0">No containers in transit</div>
+          {% endfor %}
+        </div>
+        <div class="form-group">
+          <label>Notes <span class="text-muted">(optional)</span></label>
+          <input type="text" name="notes" placeholder="e.g. Avviso ref. 25I02447">
+        </div>
+        <div class="form-actions">
+          <a href="{{ url_for('arrival.vessels') }}" class="btn btn-ghost">Cancel</a>
+          <button type="submit" class="btn btn-primary">Record Arrival</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleGroup(cb) {
+  const group = cb.closest('div');
+  group.querySelectorAll('.group-ctr').forEach(c => c.checked = cb.checked);
+}
+</script>
+{% endblock %}

@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Sales DDT{% endblock %}
+{% block page_title %}Record Sales DDT{% endblock %}
+
+{% block main_content %}
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start">
+
+  <div class="card">
+    <div class="card-header"><span class="card-title">Upload DDT (optional)</span></div>
+    <div class="card-body">
+      <p style="color:var(--text-secondary);margin-bottom:16px;font-size:13px;line-height:1.6">
+        Upload the DDT PDF to auto-extract data, or fill in manually below.
+      </p>
+      <form method="POST" enctype="multipart/form-data">
+        <div class="form-group">
+          <label>DDT Document (PDF or image)</label>
+          <input type="file" name="document" accept=".pdf,.png,.jpg,.jpeg">
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary">Extract →</button>
+        </div>
+      </form>
+      <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:16px">
+        <div style="font-size:12px;color:var(--text-secondary);margin-bottom:8px">Or enter manually:</div>
+        <form method="POST">
+          <input type="hidden" name="mode" value="manual">
+          <button type="submit" class="btn btn-ghost btn-sm">Manual entry →</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><span class="card-title">Open Sales</span></div>
+    <div class="card-body-flush table-wrap">
+      <table>
+        <thead>
+          <tr><th>Sale</th><th>Customer</th><th>Product</th><th class="num">MT</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+          {% for s in sales %}
+          <tr>
+            <td class="mono">{{ s.sale_code }}</td>
+            <td>{{ s.customer_name }}</td>
+            <td class="mono">{{ s.product_code }}</td>
+            <td class="num">{{ "%.2f"|format(s.provisional_mt) }}</td>
+            <td><span class="pill pill-{{ s.status|lower }}">{{ s.status }}</span></td>
+          </tr>
+          {% else %}
+          <tr><td colspan="5"><div class="empty-state">No open sales</div></td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

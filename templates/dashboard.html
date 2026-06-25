@@ -1,0 +1,195 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+{% block header_actions %}
+  <span class="text-muted text-mono">{{ now.strftime('%a %d %b %Y') }}</span>
+{% endblock %}
+
+{% block main_content %}
+
+{# ── Position summary ── #}
+<div class="card card-wide" style="margin-bottom:20px">
+  <div class="card-header">
+    <span class="card-title">Open Position</span>
+  </div>
+  <div class="card-body-flush table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Product</th>
+          <th class="num">In Transit</th>
+          <th class="num">In Port</th>
+          <th class="num">In Storage</th>
+          <th class="num">In Order</th>
+          <th class="num">Delivered</th>
+          <th class="num">Total MT</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in positions %}
+        <tr>
+          <td><span class="text-mono">{{ p.product }}</span> <span class="text-muted">{{ p.product_name }}</span></td>
+          <td class="num">{% if p.mt_in_transit %}{{ "%.1f"|format(p.mt_in_transit) }}{% else %}<span class="text-muted">—</span>{% endif %}</td>
+          <td class="num">{% if p.mt_in_port %}{{ "%.1f"|format(p.mt_in_port) }}{% else %}<span class="text-muted">—</span>{% endif %}</td>
+          <td class="num">{% if p.mt_in_storage and p.mt_in_storage > 0 %}{{ "%.1f"|format(p.mt_in_storage) }}{% else %}<span class="text-muted">—</span>{% endif %}</td>
+          <td class="num" style="color:var(--amber)">{% if p.mt_in_order %}{{ "%.1f"|format(p.mt_in_order) }}{% else %}<span class="text-muted">—</span>{% endif %}</td>
+          <td class="num" style="color:var(--green)">{% if p.mt_sold %}{{ "%.1f"|format(p.mt_sold) }}{% else %}<span class="text-muted">—</span>{% endif %}</td>
+          <td class="num" style="font-weight:500">{{ "%.1f"|format((p.mt_in_transit or 0) + (p.mt_in_port or 0) + (p.mt_in_storage or 0) + (p.mt_in_order or 0) + (p.mt_sold or 0)) }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5" class="muted" style="text-align:center;padding:24px">No position data yet</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="dash-grid">
+
+  {# ── Margin summary (CEO/BU_DIRECTOR only) ── #}
+  {% if can('sees_margins') and margin_summary %}
+  <div class="card">
+    <div class="card-header"><span class="card-title">Margin — YTD</span></div>
+    <div class="metric-grid">
+      <div class="metric">
+        <div class="metric-label">Realized €/MT</div>
+        <div class="metric-value {% if margin_summary.realized_per_mt > 0 %}positive{% endif %}">
+          {{ "%.2f"|format(margin_summary.realized_per_mt or 0) }}
+        </div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Realized Total €</div>
+        <div class="metric-value {% if margin_summary.realized_total > 0 %}positive{% endif %}">
+          {{ "{:,.0f}".format(margin_summary.realized_total or 0) }}
+        </div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">MT Sold</div>
+        <div class="metric-value neutral">{{ "%.0f"|format(margin_summary.sold_mt or 0) }}</div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  {# ── Storage balances ── #}
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Storage Balances</span>
+      {% if can('sees_prices') %}
+      <a href="{{ url_for('storage') }}" class="btn btn-ghost btn-sm">Manage</a>
+      {% endif %}
+    </div>
+    <div class="card-body-flush table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Facility</th>
+            <th>Product</th>
+            <th class="num">MT</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in storage %}
+          <tr>
+            <td class="mono">{{ s.facility_code }}</td>
+            <td class="mono">{{ s.product }}</td>
+            <td class="num">{{ "%.2f"|format(s.provisional_mt) }}</td>
+            <td>
+              {% if s.is_confirmed %}
+                <span class="pill pill-confirmed">Confirmed</span>
+              {% else %}
+                <span class="pill pill-provisional-storage">Provisional</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="4" class="muted" style="text-align:center;padding:20px">No storage data</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  {# ── Inbound — next 30 days ── #}
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Inbound — Next 30 Days</span>
+      <a href="{{ url_for('containers') }}" class="btn btn-ghost btn-sm">All containers</a>
+    </div>
+    <div class="card-body-flush table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Container</th>
+            <th>Product</th>
+            <th class="num">MT</th>
+            <th>Vessel</th>
+            <th>ETA</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for c in inbound %}
+          <tr>
+            <td class="mono">{{ c.container_code }}</td>
+            <td class="mono">{{ c.product }}</td>
+            <td class="num">{{ "%.1f"|format(c.actual_mt or 0) }}</td>
+            <td class="muted">{{ c.vessel_name or '—' }}</td>
+            <td>
+              {% if c.days_to_eta is not none %}
+                {% if c.days_to_eta < 0 %}
+                  <span class="eta-overdue">{{ c.eta_date }} ({{ c.days_to_eta }}d)</span>
+                {% elif c.days_to_eta <= 5 %}
+                  <span class="eta-soon">{{ c.eta_date }} ({{ c.days_to_eta }}d)</span>
+                {% else %}
+                  <span class="eta-ok">{{ c.eta_date }}</span>
+                {% endif %}
+              {% else %}—{% endif %}
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="5" class="muted" style="text-align:center;padding:20px">No inbound containers</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  {# ── Outbound pipeline ── #}
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Outbound Pipeline</span>
+      <a href="{{ url_for('sales_pipeline') }}" class="btn btn-ghost btn-sm">All sales</a>
+    </div>
+    <div class="card-body-flush table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Sale</th>
+            <th>Customer</th>
+            <th>Product</th>
+            <th class="num">MT</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in outbound %}
+          <tr>
+            <td class="mono">{{ s.sale_code }}</td>
+            <td>{{ s.customer }}</td>
+            <td class="mono">{{ s.product }}</td>
+            <td class="num">{{ "%.1f"|format(s.actual_mt or s.provisional_mt or 0) }}</td>
+            <td>
+              <span class="pill pill-{{ s.status | lower }}">{{ s.status }}</span>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="5" class="muted" style="text-align:center;padding:20px">No open sales</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

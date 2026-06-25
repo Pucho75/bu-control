@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% block title %}Customs Clearance{% endblock %}
+{% block page_title %}Customs Clearance{% endblock %}
+
+{% block main_content %}
+
+{# ── Filters ── #}
+<div class="card" style="margin-bottom:20px">
+  <div class="card-body">
+    <form method="GET" style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">
+      <div class="form-group" style="margin:0;flex:1 1 200px">
+        <label>Filter by ODA</label>
+        <select name="oda_id" onchange="this.form.submit()">
+          <option value="">— all ODAs —</option>
+          {% for o in odas %}
+          <option value="{{ o.id }}" {% if oda_filter == o.id|string %}selected{% endif %}>
+            {{ o.oda_code }} — {{ o.supplier_name }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group" style="margin:0;flex:1 1 200px">
+        <label>Filter by B/L</label>
+        <select name="shipment_id" onchange="this.form.submit()">
+          <option value="">— all B/Ls —</option>
+          {% for s in shipments %}
+          <option value="{{ s.id }}" {% if shipment_filter == s.id|string %}selected{% endif %}>
+            {{ s.oda_code }} / {{ s.bl_number or 'B/L ' + s.shipment_number|string }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <a href="{{ url_for('ops.customs_clearance') }}" class="btn btn-ghost btn-sm">Clear</a>
+    </form>
+  </div>
+</div>
+
+{% if containers %}
+<form method="POST">
+  <div class="card" style="margin-bottom:20px">
+    <div class="card-header">
+      <span class="card-title">Containers Awaiting Clearance</span>
+      <span class="text-muted" style="font-size:12px">{{ containers|length }} container(s)</span>
+    </div>
+    <div class="card-body-flush table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th><input type="checkbox" id="select-all" onchange="toggleAll(this)"></th>
+            <th>Container</th>
+            <th>ODA</th>
+            <th>B/L</th>
+            <th>Supplier</th>
+            <th>Product</th>
+            <th>Status</th>
+            <th class="num">Nominal MT</th>
+            <th class="num">Actual MT</th>
+            <th>Leasing Co.</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for c in containers %}
+          <tr>
+            <td><input type="checkbox" name="container_id" value="{{ c.id }}" class="ctr-checkbox"></td>
+            <td class="mono">{{ c.container_code or '—' }}</td>
+            <td class="mono">{{ c.oda_code }}</td>
+            <td class="mono muted">{{ c.bl_number or '—' }}</td>
+            <td>{{ c.supplier_name }}</td>
+            <td class="mono">{{ c.product_code }}</td>
+            <td>
+              <span class="pill pill-{{ 'complete' if c.status == 'IN_PORT' else 'in-transit' }}">
+                {{ c.status }}
+              </span>
+            </td>
+            <td class="num">{{ "%.3f"|format(c.nominal_mt or 0) }}</td>
+            <td class="num">
+              <input type="number" name="actual_mt_{{ c.id }}" step="0.001"
+                value="{{ c.actual_mt or c.nominal_mt or '' }}"
+                style="width:90px;text-align:right">
+            </td>
+            <td>
+              <select name="leasing_company_id_{{ c.id }}" style="min-width:140px">
+                <option value="">— none —</option>
+                {% for lc in leasing_cos %}
+                <option value="{{ lc.id }}" {% if c.leasing_company_id == lc.id %}selected{% endif %}>
+                  {{ lc.name }}
+                </option>
+                {% endfor %}
+              </select>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:20px">
+    <div class="card-header"><span class="card-title">Clearance Details</span></div>
+    <div class="card-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Clearance Date</label>
+          <input type="date" name="clearance_date" required value="{{ now.strftime('%Y-%m-%d') }}">
+        </div>
+        <div class="form-group">
+          <label>Destination Depot</label>
+          <select name="storage_facility_id" required>
+            <option value="">— select —</option>
+            {% for f in facilities %}
+            <option value="{{ f.id }}">{{ f.code }} — {{ f.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Total Customs Cost € (split equally)</label>
+          <input type="number" name="total_customs_cost_eur" step="0.01" placeholder="0.00">
+        </div>
+        <div class="form-group">
+          <label>Reference Doc</label>
+          <input type="text" name="reference_doc" placeholder="Customs declaration ref">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="form-actions">
+    <button type="submit" class="btn btn-primary">Record Clearance</button>
+  </div>
+</form>
+{% else %}
+<div class="card">
+  <div class="card-body">
+    <div class="empty-state">
+      <div class="empty-icon">✓</div>
+      No containers awaiting customs clearance — containers must be IN_TRANSIT or IN_PORT
+      {% if oda_filter or shipment_filter %}— try clearing the filters{% endif %}
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleAll(cb) {
+  document.querySelectorAll('.ctr-checkbox').forEach(c => c.checked = cb.checked);
+}
+</script>
+{% endblock %}

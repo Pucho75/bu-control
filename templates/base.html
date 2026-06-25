@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}BU Control{% endblock %} — Trading Operations</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/modal.css') }}">
+  {% block head %}{% endblock %}
+</head>
+<body>
+
+{% if 'user_id' in session %}
+<div class="layout">
+
+  <!-- Sidebar -->
+  <nav class="sidebar">
+    <div class="sidebar-header">
+      <span class="logo-mark">▣</span>
+      <span class="logo-text">BU Control</span>
+    </div>
+
+    <div class="sidebar-role">
+      <span class="role-badge role-{{ current_role | lower }}">{{ role_label }}</span>
+      <span class="sidebar-user">{{ session.username }}</span>
+    </div>
+
+    <ul class="nav-list">
+      <li class="nav-item {% if request.endpoint == 'dashboard' %}active{% endif %}">
+        <a href="{{ url_for('dashboard') }}">
+          <span class="nav-icon">◈</span> Dashboard
+        </a>
+      </li>
+
+      {% if can('sees_margins') %}
+      <li class="nav-item {% if request.endpoint == 'lots' %}active{% endif %}">
+        <a href="{{ url_for('lots') }}">
+          <span class="nav-icon">◎</span> Lots & Margin
+        </a>
+      </li>
+      {% endif %}
+
+      <li class="nav-item {% if 'sales' in request.endpoint %}active{% endif %}">
+        <a href="{{ url_for('sales_pipeline') }}">
+          <span class="nav-icon">◐</span> Sales
+          {% if can('can_enter_sales') %}
+          <a href="{{ url_for('sale_new') }}" class="nav-action">+</a>
+          {% endif %}
+        </a>
+      </li>
+
+      {% if can('can_enter_ops') or can('sees_prices') %}
+      <li class="nav-item {% if request.endpoint == 'orders' %}active{% endif %}">
+        <a href="{{ url_for('orders') }}">
+          <span class="nav-icon">◫</span> Orders
+        </a>
+      </li>
+      <li class="nav-item {% if request.endpoint in ['oda_status','oda_detail'] %}active{% endif %}">
+        <a href="{{ url_for('oda_status') }}">
+          <span class="nav-icon">◈</span> ODA Status
+        </a>
+      </li>
+      {% endif %}
+
+      <li class="nav-item {% if request.endpoint == 'containers' %}active{% endif %}">
+        <a href="{{ url_for('containers') }}">
+          <span class="nav-icon">⬡</span> Containers
+        </a>
+      </li>
+
+      {% if can('can_enter_ops') %}
+      <li class="nav-item {% if request.endpoint == 'movements' %}active{% endif %}">
+        <a href="{{ url_for('movements') }}">
+          <span class="nav-icon">↕</span> Movements
+        </a>
+      </li>
+      {% endif %}
+
+      {% if can('sees_prices') %}
+      <li class="nav-item {% if request.endpoint == 'storage' %}active{% endif %}">
+        <a href="{{ url_for('storage') }}">
+          <span class="nav-icon">▦</span> Storage
+        </a>
+      </li>
+      {% endif %}
+
+      {% if can('sees_margins') %}
+      <li class="nav-item {% if request.endpoint == 'storage_value' %}active{% endif %}">
+        <a href="{{ url_for('storage_value') }}">
+          <span class="nav-icon">◎</span> St. Value
+        </a>
+      </li>
+      {% endif %}
+
+      {% if current_role in ['CEO', 'LOGISTICS_ADMIN'] %}
+      <li class="nav-item {% if request.endpoint == 'pending' %}active{% endif %}">
+        <a href="{{ url_for('pending') }}">
+          <span class="nav-icon">◉</span> Pending
+          {% if pending_count|default(0) > 0 %}
+          <span class="badge">{{ pending_count }}</span>
+          {% endif %}
+        </a>
+      </li>
+      {% endif %}
+
+      {% if current_role in ['CEO', 'LOGISTICS_ADMIN', 'LOGISTICS'] %}
+      <li class="nav-section-title" style="padding:16px 16px 4px;font-size:10px;letter-spacing:.1em;color:var(--text-secondary);text-transform:uppercase">Import</li>
+      <li class="nav-item {% if request.endpoint == 'parse_docs.parse_oda' %}active{% endif %}">
+        <a href="{{ url_for('parse_docs.parse_oda') }}"><span class="nav-icon">↑</span> ODA</a>
+      </li>
+      <li class="nav-item {% if request.endpoint == 'parse_docs.parse_bl' %}active{% endif %}">
+        <a href="{{ url_for('parse_docs.parse_bl') }}"><span class="nav-icon">↑</span> B/L</a>
+      </li>
+      <li class="nav-item {% if request.endpoint == 'parse_docs.parse_coa' %}active{% endif %}">
+        <a href="{{ url_for('parse_docs.parse_coa') }}"><span class="nav-icon">↑</span> COA</a>
+      </li>
+      <li class="nav-item {% if request.endpoint == 'ops.parse_ddt' %}active{% endif %}">
+        <a href="{{ url_for('ops.parse_ddt') }}"><span class="nav-icon">↑</span> DDT</a>
+      </li>
+      <li class="nav-section-title" style="padding:16px 16px 4px;font-size:10px;letter-spacing:.1em;color:var(--text-secondary);text-transform:uppercase">Outbound</li>
+      <li class="nav-item {% if request.endpoint == 'sales_parse.parse_odv' %}active{% endif %}">
+        <a href="{{ url_for('sales_parse.parse_odv') }}"><span class="nav-icon">↑</span> ODV</a>
+      </li>
+      <li class="nav-item {% if request.endpoint == 'sales_parse.parse_sales_ddt' %}active{% endif %}">
+        <a href="{{ url_for('sales_parse.parse_sales_ddt') }}"><span class="nav-icon">↑</span> DDT Sales</a>
+      </li>
+      <li class="nav-section-title" style="padding:16px 16px 4px;font-size:10px;letter-spacing:.1em;color:var(--text-secondary);text-transform:uppercase">Operations</li>
+      <li class="nav-item {% if request.endpoint == 'arrival.vessels' %}active{% endif %}">
+        <a href="{{ url_for('arrival.vessels') }}"><span class="nav-icon">⬡</span> Vessels</a>
+      </li>
+      <li class="nav-item {% if request.endpoint == 'arrival.arrival' %}active{% endif %}">
+        <a href="{{ url_for('arrival.arrival') }}"><span class="nav-icon">↓</span> Arrival</a>
+      </li>
+      <li class="nav-item {% if request.endpoint == 'ops.customs_clearance' %}active{% endif %}">
+        <a href="{{ url_for('ops.customs_clearance') }}"><span class="nav-icon">◈</span> Customs</a>
+      </li>
+      <li class="nav-item {% if request.endpoint == 'ops.coa_assign' %}active{% endif %}">
+        <a href="{{ url_for('ops.coa_assign') }}"><span class="nav-icon">◎</span> COA Assign</a>
+      </li>
+      <li class="nav-item {% if request.endpoint == 'ops.demurrage' %}active{% endif %}">
+        <a href="{{ url_for('ops.demurrage') }}"><span class="nav-icon">◉</span> Demurrage</a>
+      </li>
+      {% endif %}
+    </ul>
+
+    <div class="sidebar-footer">
+      {% if current_role in ['CEO', 'LOGISTICS_ADMIN'] %}
+      <a href="{{ url_for('admin.settings') }}" class="logout-link" style="margin-bottom:8px;display:block">⚙ Settings</a>
+      {% endif %}
+      <a href="{{ url_for('logout') }}" class="logout-link">← logout</a>
+      <div style="margin-top:10px;font-size:10px;color:var(--text-secondary);font-family:var(--font-mono)">v{{ app_version }}</div>
+    </div>
+  </nav>
+
+  <!-- Main content -->
+  <main class="main">
+    <div class="main-header">
+      <h1 class="page-title">{% block page_title %}{% endblock %}</h1>
+      <div class="main-header-actions">{% block header_actions %}{% endblock %}</div>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for category, message in messages %}
+        <div class="alert alert-{{ category }}">{{ message }}</div>
+      {% endfor %}
+    {% endwith %}
+
+    <div class="main-content">
+      {% block main_content %}{% endblock %}
+    </div>
+  </main>
+
+</div>
+{% else %}
+  {% block content %}{% endblock %}
+{% endif %}
+
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

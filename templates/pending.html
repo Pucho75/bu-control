@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}Pending{% endblock %}
+{% block page_title %}Pending Items{% endblock %}
+
+{% block main_content %}
+<div class="pending-grid">
+
+  {# ── Column 1: Movements awaiting costs ── #}
+  <div>
+    <div class="pending-col-title">
+      Movements — Costs Pending
+      <span class="badge" style="background:var(--amber);color:#1a1917">{{ movements_pending|length }}</span>
+    </div>
+    {% for item in movements_pending %}
+    <div class="pending-item">
+      <div class="pending-item-ref">{{ item.reference }}</div>
+      <div class="pending-item-date">{{ item.event_date or '—' }}</div>
+      <div class="pending-item-actions">
+        <button class="btn btn-sm btn-secondary"
+                onclick="openCostModal({{ item.item_id }}, '{{ item.reference }}')">
+          Add costs
+        </button>
+      </div>
+    </div>
+    {% else %}
+    <div class="empty-state" style="padding:24px 0">
+      <div class="empty-icon">✓</div>
+      All costs entered
+    </div>
+    {% endfor %}
+  </div>
+
+  {# ── Column 2: Sales awaiting DDT ── #}
+  <div>
+    <div class="pending-col-title">
+      Sales — DDT Pending
+      <span class="badge" style="background:var(--blue);color:#fff">{{ ddts_pending|length }}</span>
+    </div>
+    {% for item in ddts_pending %}
+    <div class="pending-item">
+      <div class="pending-item-ref">{{ item.sale_code }}</div>
+      <div class="pending-item-date">Instructed: {{ item.event_date or '—' }}</div>
+      <div class="pending-item-actions">
+        <a href="{{ url_for('sales_parse.parse_sales_ddt') }}" class="btn btn-sm btn-secondary">
+          Upload DDT
+        </a>
+      </div>
+    </div>
+    {% else %}
+    <div class="empty-state" style="padding:24px 0">
+      <div class="empty-icon">✓</div>
+      No DDTs pending
+    </div>
+    {% endfor %}
+  </div>
+
+</div>
+
+{# ── Cost modal ── #}
+<div id="cost-modal" class="modal-backdrop" style="display:none">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">Add Costs — <span id="cost-modal-ref"></span></span>
+      <button onclick="closeModal('cost-modal')" class="modal-close">×</button>
+    </div>
+    <form method="POST" id="cost-form">
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Cost Amount (€)</label>
+          <input type="number" name="cost_eur" step="0.01" placeholder="0.00" autofocus>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" onclick="closeModal('cost-modal')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function openCostModal(id, ref) {
+  document.getElementById('cost-modal-ref').textContent = ref;
+  document.getElementById('cost-form').action = `/movements/${id}/complete_costs`;
+  document.getElementById('cost-modal').style.display = 'flex';
+}
+function closeModal(id) {
+  document.getElementById(id).style.display = 'none';
+}
+document.querySelectorAll('.modal-backdrop').forEach(el => {
+  el.addEventListener('click', e => { if (e.target === el) el.style.display = 'none'; });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Import B/L{% endblock %}
+{% block page_title %}Import Bills of Lading{% endblock %}
+
+{% block main_content %}
+<div class="card" style="max-width:560px">
+  <div class="card-header"><span class="card-title">Upload B/L Documents</span></div>
+  <div class="card-body">
+    <p style="color:var(--text-secondary);margin-bottom:20px;line-height:1.6">
+      Upload one or more B/L PDFs. Select multiple files with Shift+click or Cmd+click.
+      Claude will extract vessel, voyage, containers and link to the correct ODA.
+    </p>
+    <form method="POST" enctype="multipart/form-data">
+      <div class="form-group">
+        <label>B/L Documents (PDF or image, multiple allowed)</label>
+        <input type="file" name="document" accept=".pdf,.png,.jpg,.jpeg" multiple required>
+      </div>
+      <div class="form-actions">
+        <a href="{{ url_for('containers') }}" class="btn btn-ghost">Cancel</a>
+        <button type="submit" class="btn btn-primary">Extract →</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

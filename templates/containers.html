@@ -1,0 +1,239 @@
+{% extends "base.html" %}
+{% block title %}Containers{% endblock %}
+{% block page_title %}Container Schedule{% endblock %}
+{% block header_actions %}
+  {% if can('can_enter_ops') %}
+  <a href="{{ url_for('movement_new') }}" class="btn btn-primary">+ Movement</a>
+  {% endif %}
+{% endblock %}
+
+{% block main_content %}
+
+{# ── Filters ── #}
+<div class="card" style="margin-bottom:20px">
+  <div class="card-body">
+    <form method="GET" style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">
+      <div class="form-group" style="margin:0;flex:0 0 160px">
+        <label>Product</label>
+        <select name="product_id" onchange="this.form.submit()">
+          <option value="">— all —</option>
+          {% for p in products %}
+          <option value="{{ p.id }}" {% if product_filter == p.id|string %}selected{% endif %}>{{ p.code }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group" style="margin:0;flex:1 1 200px">
+        <label>ODA</label>
+        <select name="oda_id" onchange="this.form.submit()">
+          <option value="">— all —</option>
+          {% for o in odas %}
+          <option value="{{ o.id }}" {% if oda_filter == o.id|string %}selected{% endif %}>
+            {{ o.oda_code }} — {{ o.supplier_name }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <a href="{{ url_for('containers') }}" class="btn btn-ghost btn-sm">Clear</a>
+    </form>
+  </div>
+</div>
+
+{# ── In Transit ── #}
+<div class="card" style="margin-bottom:20px">
+  <div class="card-header">
+    <span class="card-title">In Transit</span>
+    <span class="text-muted text-mono" style="font-size:11px">Click ETA or Vessel to edit inline</span>
+  </div>
+  <div class="card-body-flush table-wrap">
+    <table id="transit-table">
+      <thead>
+        <tr>
+          <th>Container</th>
+          <th>ODA / Lot</th>
+          <th>Product</th>
+          <th class="num">MT</th>
+          <th>Vessel</th>
+          <th>Voyage</th>
+          <th>Port</th>
+          <th>ETA</th>
+          <th>Days</th>
+          <th>Updated</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in in_transit %}
+        <tr data-container-id="{{ c.id }}">
+          <td class="mono">{{ c.container_code }}</td>
+          <td class="mono">{{ c.lot_ref }}</td>
+          <td class="mono">{{ c.product_code }}</td>
+          <td class="num">{{ "%.2f"|format(c.actual_mt or c.nominal_mt or 0) }}</td>
+
+          {# Inline-editable fields — logistics team and above #}
+          {% if can('can_enter_ops') or current_role in ['CEO','BU_DIRECTOR','LOGISTICS_ADMIN'] %}
+          <td class="editable-cell" data-field="vessel_name">
+            <span class="editable">{{ c.vessel_name or '—' }}</span>
+          </td>
+          <td class="editable-cell" data-field="voyage_ref">
+            <span class="editable">{{ c.voyage_ref or '—' }}</span>
+          </td>
+          <td class="editable-cell" data-field="port_of_discharge">
+            <span class="editable">{{ c.port_of_discharge or '—' }}</span>
+          </td>
+          <td class="editable-cell" data-field="eta_date">
+            <span class="editable">
+              {% if c.eta_date %}
+                {% if c.days_to_eta is not none and c.days_to_eta < 0 %}
+                  <span class="eta-overdue">{{ c.eta_date }}</span>
+                {% elif c.days_to_eta is not none and c.days_to_eta <= 5 %}
+                  <span class="eta-soon">{{ c.eta_date }}</span>
+                {% else %}
+                  {{ c.eta_date }}
+                {% endif %}
+              {% else %}—{% endif %}
+            </span>
+          </td>
+          {% else %}
+          <td class="muted">{{ c.vessel_name or '—' }}</td>
+          <td class="muted">{{ c.voyage_ref or '—' }}</td>
+          <td class="muted">{{ c.port_of_discharge or '—' }}</td>
+          <td>{{ c.eta_date or '—' }}</td>
+          {% endif %}
+
+          <td>
+            {% if c.days_to_eta is not none %}
+              {% if c.days_to_eta < 0 %}
+                <span class="eta-overdue">{{ c.days_to_eta }}d</span>
+              {% elif c.days_to_eta <= 5 %}
+                <span class="eta-soon">+{{ c.days_to_eta }}d</span>
+              {% else %}
+                <span class="eta-ok">+{{ c.days_to_eta }}d</span>
+              {% endif %}
+            {% else %}<span class="text-muted">—</span>{% endif %}
+          </td>
+          <td class="muted" style="font-size:11px">
+            {% if c.eta_last_updated_at %}{{ c.eta_last_updated_at[:10] }}{% else %}—{% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="10">
+            <div class="empty-state">
+              <div class="empty-icon">⬡</div>
+              No containers in transit
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{# ── In Storage ── #}
+<div class="card">
+  <div class="card-header">
+    <span class="card-title">In Storage</span>
+  </div>
+  <div class="card-body-flush table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Container</th>
+          <th>ODA</th>
+          <th>Product</th>
+          <th class="num">MT</th>
+          <th>Type</th>
+          <th>Facility</th>
+          <th>Entry Date</th>
+          <th>Clearance</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in in_storage %}
+        <tr>
+          <td class="mono">{{ c.container_code }}</td>
+          <td class="mono">{{ c.oda_code }}</td>
+          <td class="mono">{{ c.product_code }}</td>
+          <td class="num">{{ "%.2f"|format(c.actual_mt or c.nominal_mt or 0) }}</td>
+          <td><span class="pill pill-{{ 'in_transit' if c.container_type == 'ISOTANK' else 'pending' }}">{{ c.container_type }}</span></td>
+          <td class="mono">{{ c.facility_name or '—' }}</td>
+          <td class="muted mono">{{ c.storage_entry_date or '—' }}</td>
+          <td class="muted mono">{{ c.customs_clearance_date or '—' }}</td>
+          <td><span class="pill pill-{{ c.status | lower | replace('_','-') }}">{{ c.status }}</span></td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="9">
+            <div class="empty-state">
+              <div class="empty-icon">▦</div>
+              No containers in storage
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Inline ETA editing for G and logistics team
+document.querySelectorAll('.editable-cell').forEach(cell => {
+  cell.querySelector('.editable').addEventListener('click', function() {
+    const field = cell.dataset.field;
+    const row   = cell.closest('tr');
+    const cid   = row.dataset.containerId;
+    const current = this.textContent.trim().replace('—','');
+
+    const inputType = field === 'eta_date' ? 'date' : 'text';
+    const input = document.createElement('input');
+    input.type  = inputType;
+    input.value = current;
+    input.className = 'inline-edit-input';
+
+    cell.replaceChildren(input);
+    input.focus();
+
+    const save = async () => {
+      const val = input.value.trim();
+      // Collect all current values from the row
+      const rowData = {};
+      row.querySelectorAll('.editable-cell').forEach(c => {
+        const f = c.dataset.field;
+        const el = c.querySelector('.editable, .inline-edit-input');
+        rowData[f] = el ? el.value || el.textContent.trim().replace('—','') : '';
+      });
+      rowData[field] = val; // override with just-edited value
+
+      try {
+        const resp = await fetch(`/containers/${cid}/update_eta`, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(rowData),
+        });
+        if (resp.ok) {
+          const span = document.createElement('span');
+          span.className = 'editable';
+          span.textContent = val || '—';
+          cell.replaceChildren(span);
+          // Re-attach listener
+          span.addEventListener('click', arguments.callee);
+        }
+      } catch(e) {
+        cell.querySelector('input').style.borderColor = 'var(--red)';
+      }
+    };
+
+    input.addEventListener('blur', save);
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter')  { e.preventDefault(); input.blur(); }
+      if (e.key === 'Escape') { location.reload(); }
+    });
+  });
+});
+</script>
+{% endblock %}

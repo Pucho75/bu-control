@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+{% block title %}Demurrage Tracker{% endblock %}
+{% block page_title %}Demurrage & Empty Return Tracker{% endblock %}
+
+{% block main_content %}
+
+{# ── Summary ── #}
+{% if total_exposure > 0 %}
+<div class="alert alert-error" style="margin-bottom:20px">
+  ⚠ Total demurrage exposure: <strong>€ {{ "{:,.0f}".format(total_exposure) }}</strong>
+  on overdue containers
+</div>
+{% endif %}
+
+{# ── Filters ── #}
+<div class="card" style="margin-bottom:20px">
+  <div class="card-body">
+    <form method="GET" style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">
+      <div class="form-group" style="margin:0;flex:0 0 180px">
+        <label>Status</label>
+        <select name="status" onchange="this.form.submit()">
+          <option value="">— all —</option>
+          <option value="OVERDUE"    {% if status_filter == 'OVERDUE'    %}selected{% endif %}>Overdue</option>
+          <option value="DUE_SOON"   {% if status_filter == 'DUE_SOON'   %}selected{% endif %}>Due soon (≤3 days)</option>
+          <option value="OK"         {% if status_filter == 'OK'         %}selected{% endif %}>OK</option>
+          <option value="RETURNED"   {% if status_filter == 'RETURNED'   %}selected{% endif %}>Returned</option>
+          <option value="NOT_CLEARED"{% if status_filter == 'NOT_CLEARED'%}selected{% endif %}>Not cleared yet</option>
+        </select>
+      </div>
+      <a href="{{ url_for('ops.demurrage') }}" class="btn btn-ghost btn-sm">Clear</a>
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-body-flush table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Container</th>
+          <th>ODA</th>
+          <th>B/L</th>
+          <th>Leasing Co.</th>
+          <th>Discharge Date</th>
+          <th class="num">Free Days</th>
+          <th>Return Deadline</th>
+          <th class="num">Days Overdue</th>
+          <th class="num">Est. Demurrage €</th>
+          <th>Status</th>
+          <th>Returned</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+        <tr>
+          <td class="mono">{{ r.container_code or '—' }}</td>
+          <td class="mono">{{ r.oda_code }}</td>
+          <td class="mono muted">{{ r.bl_number or '—' }}</td>
+          <td>{{ r.leasing_company or '—' }}</td>
+          <td class="mono muted">{{ r.discharge_date or '—' }}</td>
+          <td class="num">{{ r.free_days or '—' }}</td>
+          <td class="mono
+            {% if r.return_status == 'OVERDUE' %}" style="color:var(--red)
+            {% elif r.return_status == 'DUE_SOON' %}" style="color:var(--amber)
+            {% endif %}">{{ r.empty_return_deadline or '—' }}</td>
+          <td class="num">
+            {% if r.days_overdue and r.days_overdue > 0 and r.return_status != 'RETURNED' %}
+              <span style="color:var(--red);font-weight:500">+{{ r.days_overdue }}d</span>
+            {% else %}—{% endif %}
+          </td>
+          <td class="num">
+            {% if r.estimated_demurrage_eur and r.estimated_demurrage_eur > 0 %}
+              <span style="color:var(--red)">{{ "{:,.0f}".format(r.estimated_demurrage_eur) }}</span>
+            {% else %}—{% endif %}
+          </td>
+          <td>
+            <span class="pill pill-{{
+              'pending' if r.return_status == 'OVERDUE' else
+              'provisional-storage' if r.return_status == 'DUE_SOON' else
+              'complete' if r.return_status == 'RETURNED' else
+              'in-transit'
+            }}">{{ r.return_status }}</span>
+          </td>
+          <td class="mono muted">{{ r.empty_returned_date or '—' }}</td>
+          <td>
+            {% if r.return_status != 'RETURNED' and r.discharge_date %}
+            <button class="btn btn-sm btn-ghost"
+              onclick="openReturnModal({{ r.container_id }}, '{{ r.container_code }}')">
+              Mark returned
+            </button>
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="12"><div class="empty-state">No containers to track</div></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{# ── Return modal ── #}
+<div id="return-modal" class="modal-backdrop" style="display:none">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">Mark Empty Returned — <span id="return-modal-ref"></span></span>
+      <button onclick="document.getElementById('return-modal').style.display='none'" class="modal-close">×</button>
+    </div>
+    <form method="POST" id="return-form">
+      <div class="modal-body">
+        <div class="form-row">
+          <div class="form-group">
+            <label>Return Date</label>
+            <input type="date" name="return_date" value="{{ now.strftime('%Y-%m-%d') }}" required>
+          </div>
+          <div class="form-group">
+            <label>Actual Demurrage Cost € <span class="text-muted">(if any)</span></label>
+            <input type="number" name="demurrage_cost_eur" step="0.01" placeholder="0.00">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost"
+          onclick="document.getElementById('return-modal').style.display='none'">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function openReturnModal(id, code) {
+  document.getElementById('return-modal-ref').textContent = code;
+  document.getElementById('return-form').action = `/demurrage/${id}/return`;
+  document.getElementById('return-modal').style.display = 'flex';
+}
+document.querySelectorAll('.modal-backdrop').forEach(el => {
+  el.addEventListener('click', e => { if (e.target === el) el.style.display = 'none'; });
+});
+</script>
+{% endblock %}

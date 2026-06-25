@@ -1,0 +1,768 @@
+{% extends "base.html" %}
+{% block title %}Settings{% endblock %}
+{% block page_title %}Settings & Reference Data{% endblock %}
+
+{% block main_content %}
+
+{# ── IMPORT REFERENCE DATA ── #}
+<div class="card" style="margin-bottom:20px" id="import">
+  <div class="card-header"><span class="card-title">Import Reference Data</span>
+    <span class="text-muted" style="font-size:12px">Products, suppliers, customers, facilities, carriers, leasing companies</span>
+  </div>
+  <div class="card-body" style="display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap">
+    <div>
+      <div style="font-size:13px;color:var(--text-secondary);margin-bottom:12px;line-height:1.6">
+        Download the Excel template, fill in your lists, then upload it here.
+        Existing records are never overwritten — only new rows are added.
+      </div>
+      <a href="{{ url_for('admin.import_reference') }}" class="btn btn-ghost btn-sm">
+        ↓ Download Template
+      </a>
+    </div>
+    <div style="flex:1;min-width:260px">
+      <form method="POST" action="{{ url_for('admin.import_reference') }}" enctype="multipart/form-data"
+            style="display:flex;gap:10px;align-items:flex-end">
+        <div class="form-group" style="margin:0;flex:1">
+          <label>Upload filled template</label>
+          <input type="file" name="reference_file" accept=".xlsx" required>
+        </div>
+        <button type="submit" class="btn btn-primary btn-sm">Import</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+{# ── PRODUCTS ── #}
+<div class="card" style="margin-bottom:20px" id="products">
+  <div class="card-header">
+    <span class="card-title">Products</span>
+    <span class="text-muted" style="font-size:12px">{{ products|length }} total</span>
+  </div>
+  <div class="card-body-flush table-wrap">
+    <table>
+      <thead>
+        <tr><th>Code</th><th>Name</th><th>Unit</th><th>Status</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for p in products %}
+        <tr>
+          <td class="mono">{{ p.code }}</td>
+          <td>{{ p.name }}</td>
+          <td class="mono">{{ p.unit }}</td>
+          <td><span class="pill pill-{{ 'complete' if p.is_active else 'pending' }}">{{ 'Active' if p.is_active else 'Inactive' }}</span></td>
+          <td style="display:flex;gap:6px">
+            <button class="btn btn-sm btn-ghost" onclick="toggleEdit('product-{{ p.id }}')">Edit</button>
+            <form method="POST" action="{{ url_for('admin.toggle_product', pid=p.id) }}" style="display:inline">
+              <button class="btn btn-sm btn-ghost">{{ 'Deactivate' if p.is_active else 'Activate' }}</button>
+            </form>
+          </td>
+        </tr>
+        <tr id="product-{{ p.id }}" style="display:none;background:var(--surface-2)">
+          <td colspan="5">
+            <form method="POST" action="{{ url_for('admin.edit_product', pid=p.id) }}"
+                  style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;padding:8px 0">
+              <div class="form-group" style="margin:0;flex:0 0 120px">
+                <label>Code</label>
+                <input type="text" name="code" value="{{ p.code }}" required style="text-transform:uppercase">
+              </div>
+              <div class="form-group" style="margin:0;flex:1 1 200px">
+                <label>Name</label>
+                <input type="text" name="name" value="{{ p.name }}" required>
+              </div>
+              <div class="form-group" style="margin:0;flex:0 0 80px">
+                <label>Unit</label>
+                <select name="unit">
+                  <option value="MT" {% if p.unit == 'MT' %}selected{% endif %}>MT</option>
+                  <option value="KG" {% if p.unit == 'KG' %}selected{% endif %}>KG</option>
+                  <option value="L"  {% if p.unit == 'L'  %}selected{% endif %}>L</option>
+                </select>
+              </div>
+              <button type="submit" class="btn btn-primary btn-sm">Save</button>
+              <button type="button" class="btn btn-ghost btn-sm" onclick="toggleEdit('product-{{ p.id }}')">Cancel</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5"><div class="empty-state">No products yet</div></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="card-body" style="border-top:1px solid var(--border)">
+    <form method="POST" action="{{ url_for('admin.add_product') }}" style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+      <div class="form-group" style="margin:0;flex:0 0 120px">
+        <label>Code</label>
+        <input type="text" name="code" placeholder="e.g. ESO" required style="text-transform:uppercase">
+      </div>
+      <div class="form-group" style="margin:0;flex:1 1 200px">
+        <label>Name</label>
+        <input type="text" name="name" placeholder="e.g. Olio di Soia Epossidato" required>
+      </div>
+      <div class="form-group" style="margin:0;flex:0 0 80px">
+        <label>Unit</label>
+        <select name="unit">
+          <option value="MT">MT</option>
+          <option value="KG">KG</option>
+          <option value="L">L</option>
+        </select>
+      </div>
+      <button type="submit" class="btn btn-primary btn-sm">+ Add</button>
+    </form>
+  </div>
+</div>
+
+{# ── SUPPLIERS ── #}
+<div class="card" style="margin-bottom:20px" id="suppliers">
+  <div class="card-header">
+    <span class="card-title">Suppliers</span>
+    <span class="text-muted" style="font-size:12px">{{ suppliers|length }} total</span>
+  </div>
+  <div class="card-body-flush table-wrap">
+    <table>
+      <thead>
+        <tr><th>Name</th><th>Country</th><th>Status</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for s in suppliers %}
+        <tr>
+          <td>{{ s.name }}</td>
+          <td class="mono">{{ s.country or '—' }}</td>
+          <td><span class="pill pill-{{ 'complete' if s.is_active else 'pending' }}">{{ 'Active' if s.is_active else 'Inactive' }}</span></td>
+          <td style="display:flex;gap:6px">
+            <button class="btn btn-sm btn-ghost"
+              onclick="toggleEdit('supplier-{{ s.id }}')">Edit</button>
+            <form method="POST" action="{{ url_for('admin.toggle_supplier', sid=s.id) }}" style="display:inline">
+              <button class="btn btn-sm btn-ghost">{{ 'Deactivate' if s.is_active else 'Activate' }}</button>
+            </form>
+          </td>
+        </tr>
+        <tr id="supplier-{{ s.id }}" style="display:none;background:var(--surface-2)">
+          <td colspan="4">
+            <form method="POST" action="{{ url_for('admin.edit_supplier', sid=s.id) }}"
+                  style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;padding:8px 0">
+              <div class="form-group" style="margin:0;flex:1 1 200px">
+                <label>Name</label>
+                <input type="text" name="name" value="{{ s.name }}" required>
+              </div>
+              <div class="form-group" style="margin:0;flex:0 0 80px">
+                <label>Country</label>
+                <input type="text" name="country" value="{{ s.country or '' }}"
+                  maxlength="2" style="text-transform:uppercase;width:60px">
+              </div>
+              <button type="submit" class="btn btn-primary btn-sm">Save</button>
+              <button type="button" class="btn btn-ghost btn-sm"
+                onclick="toggleEdit('supplier-{{ s.id }}')">Cancel</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="4"><div class="empty-state">No suppliers yet</div></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="card-body" style="border-top:1px solid var(--border)">
+    <form method="POST" action="{{ url_for('admin.add_supplier') }}" style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+      <div class="form-group" style="margin:0;flex:1 1 200px">
+        <label>Name</label>
+        <input type="text" name="name" placeholder="Supplier name" required>
+      </div>
+      <div class="form-group" style="margin:0;flex:0 0 80px">
+        <label>Country</label>
+        <input type="text" name="country" placeholder="AR" maxlength="2" style="text-transform:uppercase;width:60px">
+      </div>
+      <button type="submit" class="btn btn-primary btn-sm">+ Add</button>
+    </form>
+  </div>
+</div>
+
+{# ── CUSTOMERS ── #}
+<div class="card" style="margin-bottom:20px" id="customers">
+  <div class="card-header">
+    <span class="card-title">Customers</span>
+    <span class="text-muted" style="font-size:12px">{{ customers|length }} total</span>
+  </div>
+  <div class="card-body-flush table-wrap">
+    <table>
+      <thead>
+        <tr><th>Name</th><th>Country</th><th>Status</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for c in customers %}
+        <tr>
+          <td>{{ c.name }}</td>
+          <td class="mono">{{ c.country or '—' }}</td>
+          <td><span class="pill pill-{{ 'complete' if c.is_active else 'pending' }}">{{ 'Active' if c.is_active else 'Inactive' }}</span></td>
+          <td style="display:flex;gap:6px">
+            <button class="btn btn-sm btn-ghost" onclick="toggleEdit('customer-{{ c.id }}')">Edit</button>
+            <form method="POST" action="{{ url_for('admin.toggle_customer', cid=c.id) }}" style="display:inline">
+              <button class="btn btn-sm btn-ghost">{{ 'Deactivate' if c.is_active else 'Activate' }}</button>
+            </form>
+          </td>
+        </tr>
+        <tr id="customer-{{ c.id }}" style="display:none;background:var(--surface-2)">
+          <td colspan="4">
+            <form method="POST" action="{{ url_for('admin.edit_customer', cid=c.id) }}"
+                  style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;padding:8px 0">
+              <div class="form-group" style="margin:0;flex:1 1 200px">
+                <label>Name</label>
+                <input type="text" name="name" value="{{ c.name }}" required>
+              </div>
+              <div class="form-group" style="margin:0;flex:0 0 80px">
+                <label>Country</label>
+                <input type="text" name="country" value="{{ c.country or '' }}"
+                  maxlength="2" style="text-transform:uppercase;width:60px">
+              </div>
+              <button type="submit" class="btn btn-primary btn-sm">Save</button>
+              <button type="button" class="btn btn-ghost btn-sm" onclick="toggleEdit('customer-{{ c.id }}')">Cancel</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="4"><div class="empty-state">No customers yet</div></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="card-body" style="border-top:1px solid var(--border)">
+    <form method="POST" action="{{ url_for('admin.add_customer') }}" style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+      <div class="form-group" style="margin:0;flex:1 1 200px">
+        <label>Name</label>
+        <input type="text" name="name" placeholder="Customer name" required>
+      </div>
+      <div class="form-group" style="margin:0;flex:0 0 80px">
+        <label>Country</label>
+        <input type="text" name="country" placeholder="IT" maxlength="2" style="text-transform:uppercase;width:60px">
+      </div>
+      <button type="submit" class="btn btn-primary btn-sm">+ Add</button>
+    </form>
+  </div>
+</div>
+
+{# ── STORAGE FACILITIES ── #}
+<div class="card" style="margin-bottom:20px" id="facilities">
+  <div class="card-header">
+    <span class="card-title">Storage Facilities</span>
+    <span class="text-muted" style="font-size:12px">{{ facilities|length }} total</span>
+  </div>
+  <div class="card-body-flush table-wrap">
+    <table>
+      <thead>
+        <tr><th>Code</th><th>Name</th><th>Location</th><th>Country</th><th>Status</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for f in facilities %}
+        <tr>
+          <td class="mono">{{ f.code }}</td>
+          <td>{{ f.name }}</td>
+          <td class="muted">{{ f.location or '—' }}</td>
+          <td class="mono">{{ f.country }}</td>
+          <td><span class="pill pill-{{ 'complete' if f.is_active else 'pending' }}">{{ 'Active' if f.is_active else 'Inactive' }}</span></td>
+          <td style="display:flex;gap:6px">
+            <button class="btn btn-sm btn-ghost" onclick="toggleEdit('facility-{{ f.id }}')">Edit</button>
+            <form method="POST" action="{{ url_for('admin.toggle_facility', fid=f.id) }}" style="display:inline">
+              <button class="btn btn-sm btn-ghost">{{ 'Deactivate' if f.is_active else 'Activate' }}</button>
+            </form>
+          </td>
+        </tr>
+        <tr id="facility-{{ f.id }}" style="display:none;background:var(--surface-2)">
+          <td colspan="6">
+            <form method="POST" action="{{ url_for('admin.edit_facility', fid=f.id) }}"
+                  style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;padding:8px 0">
+              <div class="form-group" style="margin:0;flex:0 0 100px">
+                <label>Code</label>
+                <input type="text" name="code" value="{{ f.code }}" required style="text-transform:uppercase">
+              </div>
+              <div class="form-group" style="margin:0;flex:1 1 180px">
+                <label>Name</label>
+                <input type="text" name="name" value="{{ f.name }}" required>
+              </div>
+              <div class="form-group" style="margin:0;flex:1 1 150px">
+                <label>Location</label>
+                <input type="text" name="location" value="{{ f.location or '' }}">
+              </div>
+              <div class="form-group" style="margin:0;flex:0 0 70px">
+                <label>Country</label>
+                <input type="text" name="country" value="{{ f.country }}" maxlength="2"
+                  style="text-transform:uppercase;width:50px">
+              </div>
+              <button type="submit" class="btn btn-primary btn-sm">Save</button>
+              <button type="button" class="btn btn-ghost btn-sm" onclick="toggleEdit('facility-{{ f.id }}')">Cancel</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6"><div class="empty-state">No facilities yet</div></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="card-body" style="border-top:1px solid var(--border)">
+    <form method="POST" action="{{ url_for('admin.add_facility') }}" style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+      <div class="form-group" style="margin:0;flex:0 0 100px">
+        <label>Code</label>
+        <input type="text" name="code" placeholder="e.g. DEP-S" required style="text-transform:uppercase">
+      </div>
+      <div class="form-group" style="margin:0;flex:1 1 180px">
+        <label>Name</label>
+        <input type="text" name="name" placeholder="Depot S" required>
+      </div>
+      <div class="form-group" style="margin:0;flex:1 1 150px">
+        <label>Location</label>
+        <input type="text" name="location" placeholder="City">
+      </div>
+      <div class="form-group" style="margin:0;flex:0 0 70px">
+        <label>Country</label>
+        <input type="text" name="country" value="IT" maxlength="2" style="text-transform:uppercase;width:50px">
+      </div>
+      <button type="submit" class="btn btn-primary btn-sm">+ Add</button>
+    </form>
+  </div>
+</div>
+
+{# ── CARRIERS ── #}
+<div class="card" style="margin-bottom:20px" id="carriers">
+  <div class="card-header">
+    <span class="card-title">Carriers</span>
+    <span class="text-muted" style="font-size:12px">{{ carriers|length }} total</span>
+  </div>
+  <div class="card-body-flush table-wrap">
+    <table>
+      <thead>
+        <tr><th>Code</th><th>Name</th><th>Status</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for c in carriers %}
+        <tr>
+          <td class="mono">{{ c.code }}</td>
+          <td>{{ c.name }}</td>
+          <td><span class="pill pill-{{ 'complete' if c.is_active else 'pending' }}">{{ 'Active' if c.is_active else 'Inactive' }}</span></td>
+          <td>
+            <form method="POST" action="{{ url_for('admin.toggle_carrier', cid=c.id) }}" style="display:inline">
+              <button class="btn btn-sm btn-ghost">{{ 'Deactivate' if c.is_active else 'Activate' }}</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="4"><div class="empty-state">No carriers yet</div></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="card-body" style="border-top:1px solid var(--border)">
+    <form method="POST" action="{{ url_for('admin.add_carrier') }}" style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+      <div class="form-group" style="margin:0;flex:0 0 100px">
+        <label>Code</label>
+        <input type="text" name="code" placeholder="e.g. MSC" required style="text-transform:uppercase">
+      </div>
+      <div class="form-group" style="margin:0;flex:1 1 180px">
+        <label>Name</label>
+        <input type="text" name="name" placeholder="MSC Mediterranean" required>
+      </div>
+      <button type="submit" class="btn btn-primary btn-sm">+ Add</button>
+    </form>
+  </div>
+</div>
+
+{# ── SUPPLIER ALIASES ── #}
+<div class="card" style="margin-bottom:20px" id="supplier-aliases">
+  <div class="card-header">
+    <span class="card-title">Supplier Aliases</span>
+    <span class="text-muted" style="font-size:12px">Alternative names learned from document imports</span>
+  </div>
+  <div class="card-body-flush table-wrap">
+    <table>
+      <thead>
+        <tr><th>Alias (as in document)</th><th>→ Supplier</th><th>Source</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for a in supplier_aliases %}
+        <tr>
+          <td class="mono">{{ a.alias }}</td>
+          <td>{{ a.supplier_name }}</td>
+          <td><span class="pill pill-{{ 'complete' if a.source == 'MANUAL' else 'provisional-storage' }}">{{ a.source }}</span></td>
+          <td>
+            <form method="POST" action="{{ url_for('admin.delete_supplier_alias', aid=a.id) }}" style="display:inline">
+              <button class="btn btn-sm btn-ghost" style="color:var(--red)">Remove</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="4"><div class="empty-state">No aliases yet — learned automatically during ODA imports</div></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="card-body" style="border-top:1px solid var(--border)">
+    <form method="POST" action="{{ url_for('admin.add_supplier_alias') }}" style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+      <div class="form-group" style="margin:0;flex:1 1 180px">
+        <label>Supplier</label>
+        <select name="supplier_id" required>
+          <option value="">— select —</option>
+          {% for s in suppliers %}<option value="{{ s.id }}">{{ s.name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="form-group" style="margin:0;flex:1 1 200px">
+        <label>Alias (name as it appears in documents)</label>
+        <input type="text" name="alias" placeholder="e.g. PRINCZ SAICFel Argentina" required>
+      </div>
+      <button type="submit" class="btn btn-primary btn-sm">+ Add</button>
+    </form>
+  </div>
+</div>
+
+{# ── PRODUCT ALIASES ── #}
+<div class="card" style="margin-bottom:20px" id="aliases">
+  <div class="card-header">
+    <span class="card-title">Product Aliases</span>
+    <span class="text-muted" style="font-size:12px">Supplier-specific product names → internal product mapping</span>
+  </div>
+  <div class="card-body-flush table-wrap">
+    <table>
+      <thead>
+        <tr><th>Supplier</th><th>Alias (supplier's name)</th><th>→ Product</th><th>Source</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for a in aliases %}
+        <tr>
+          <td>{{ a.supplier_name }}</td>
+          <td class="mono">{{ a.alias }}</td>
+          <td class="mono">{{ a.product_code }}</td>
+          <td><span class="pill pill-{{ 'complete' if a.source == 'MANUAL' else 'provisional-storage' }}">{{ a.source }}</span></td>
+          <td>
+            <form method="POST" action="{{ url_for('admin.delete_alias', aid=a.id) }}" style="display:inline">
+              <button class="btn btn-sm btn-ghost" style="color:var(--red)">Remove</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5"><div class="empty-state">No aliases yet — they will be learned automatically during ODA imports</div></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="card-body" style="border-top:1px solid var(--border)">
+    <form method="POST" action="{{ url_for('admin.add_alias') }}" style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+      <div class="form-group" style="margin:0;flex:1 1 180px">
+        <label>Supplier</label>
+        <select name="supplier_id" required>
+          <option value="">— select —</option>
+          {% for s in suppliers %}
+          <option value="{{ s.id }}">{{ s.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group" style="margin:0;flex:1 1 180px">
+        <label>Alias (supplier's product name)</label>
+        <input type="text" name="alias" placeholder="e.g. PRINPLAS700" required>
+      </div>
+      <div class="form-group" style="margin:0;flex:0 0 160px">
+        <label>Maps to Product</label>
+        <select name="product_id" required>
+          <option value="">— select —</option>
+          {% for p in products %}
+          <option value="{{ p.id }}">{{ p.code }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <button type="submit" class="btn btn-primary btn-sm">+ Add</button>
+    </form>
+  </div>
+</div>
+
+{# ── SUPPLIER → DEPOT DEFAULTS ── #}
+<div class="card" id="depot-defaults">
+  <div class="card-header">
+    <span class="card-title">Supplier → Depot Defaults</span>
+    <span class="text-muted" style="font-size:12px">Used at customs clearance to auto-assign depot</span>
+  </div>
+  <div class="card-body-flush table-wrap">
+    <table>
+      <thead>
+        <tr><th>Supplier</th><th>Product</th><th>Depot</th><th>Valid From</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for d in depot_defaults %}
+        <tr>
+          <td>{{ d.supplier_name }}</td>
+          <td class="mono">{{ d.product_code or '— all —' }}</td>
+          <td class="mono">{{ d.facility_code }}</td>
+          <td class="mono muted">{{ d.valid_from }}</td>
+          <td>
+            <form method="POST" action="{{ url_for('admin.delete_depot_default', did=d.id) }}" style="display:inline">
+              <button class="btn btn-sm btn-ghost" style="color:var(--red)">Remove</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5"><div class="empty-state">No depot defaults set</div></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="card-body" style="border-top:1px solid var(--border)">
+    <form method="POST" action="{{ url_for('admin.add_depot_default') }}" style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+      <div class="form-group" style="margin:0;flex:1 1 180px">
+        <label>Supplier</label>
+        <select name="supplier_id" required>
+          <option value="">— select —</option>
+          {% for s in suppliers %}
+          <option value="{{ s.id }}">{{ s.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group" style="margin:0;flex:0 0 140px">
+        <label>Product <span class="text-muted">(optional)</span></label>
+        <select name="product_id">
+          <option value="">— all products —</option>
+          {% for p in products %}
+          <option value="{{ p.id }}">{{ p.code }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group" style="margin:0;flex:1 1 160px">
+        <label>Default Depot</label>
+        <select name="storage_facility_id" required>
+          <option value="">— select —</option>
+          {% for f in facilities %}
+          <option value="{{ f.id }}">{{ f.code }} — {{ f.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group" style="margin:0;flex:0 0 140px">
+        <label>Valid From</label>
+        <input type="date" name="valid_from" value="{{ now.strftime('%Y-%m-%d') }}">
+      </div>
+      <button type="submit" class="btn btn-primary btn-sm">+ Add</button>
+    </form>
+  </div>
+</div>
+
+{# ── LEASING COMPANIES ── #}
+<div class="card" style="margin-bottom:20px" id="leasing">
+  <div class="card-header"><span class="card-title">Container Leasing Companies</span></div>
+  <div class="card-body-flush table-wrap">
+    <table>
+      <thead><tr><th>Name</th><th>Code/Prefix</th><th>Rates</th><th></th></tr></thead>
+      <tbody>
+        {% for lc in leasing_cos %}
+        <tr>
+          <td>{{ lc.name }}</td>
+          <td class="mono">{{ lc.code or '—' }}</td>
+          <td class="muted" style="font-size:11px">{{ lc.rates or 'no rates set' }}</td>
+          <td><button class="btn btn-sm btn-ghost" onclick="toggleEdit('lc-{{ lc.id }}')">Edit</button></td>
+        </tr>
+        <tr id="lc-{{ lc.id }}" style="display:none;background:var(--surface-2)">
+          <td colspan="4">
+            <form method="POST" action="{{ url_for('admin.edit_leasing_company', lid=lc.id) }}"
+                  style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;padding:8px 0">
+              <div class="form-group" style="margin:0;flex:1 1 180px">
+                <label>Name</label><input type="text" name="name" value="{{ lc.name }}" required>
+              </div>
+              <div class="form-group" style="margin:0;flex:0 0 100px">
+                <label>Code</label><input type="text" name="code" value="{{ lc.code or '' }}" style="text-transform:uppercase">
+              </div>
+              <button type="submit" class="btn btn-primary btn-sm">Save</button>
+              <button type="button" class="btn btn-ghost btn-sm" onclick="toggleEdit('lc-{{ lc.id }}')">Cancel</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="4"><div class="empty-state">No leasing companies yet</div></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="card-body" style="border-top:1px solid var(--border)">
+    <div style="font-size:12px;color:var(--text-secondary);margin-bottom:12px">Add company:</div>
+    <form method="POST" action="{{ url_for('admin.add_leasing_company') }}"
+          style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+      <div class="form-group" style="margin:0;flex:1 1 180px">
+        <label>Name</label><input type="text" name="name" placeholder="Den Hartogh" required>
+      </div>
+      <div class="form-group" style="margin:0;flex:0 0 100px">
+        <label>Code/Prefix</label><input type="text" name="code" placeholder="DHDU" style="text-transform:uppercase">
+      </div>
+      <button type="submit" class="btn btn-primary btn-sm">+ Add</button>
+    </form>
+  </div>
+</div>
+
+{# ── LEASING RATES ── #}
+<div class="card" style="margin-bottom:20px">
+  <div class="card-header"><span class="card-title">Demurrage Rates</span>
+    <span class="text-muted" style="font-size:12px">Time-versioned per leasing company</span>
+  </div>
+  <div class="card-body-flush table-wrap">
+    <table>
+      <thead><tr><th>Company</th><th>Valid From</th><th class="num">Free Days</th><th class="num">€/Day</th><th>Notes</th></tr></thead>
+      <tbody>
+        {% for r in leasing_rates %}
+        <tr>
+          <td>{{ r.company_name }}</td>
+          <td class="mono muted">{{ r.valid_from }}</td>
+          <td class="num">{{ r.free_days }}</td>
+          <td class="num">{{ "%.2f"|format(r.demurrage_rate_eur_day) }}</td>
+          <td class="muted">{{ r.notes or '—' }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5"><div class="empty-state">No rates set</div></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="card-body" style="border-top:1px solid var(--border)">
+    <form method="POST" action="{{ url_for('admin.add_leasing_rate') }}"
+          style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+      <div class="form-group" style="margin:0;flex:1 1 160px">
+        <label>Company</label>
+        <select name="leasing_company_id" required>
+          <option value="">— select —</option>
+          {% for lc in leasing_cos %}<option value="{{ lc.id }}">{{ lc.name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="form-group" style="margin:0;flex:0 0 130px">
+        <label>Valid From</label><input type="date" name="valid_from" required>
+      </div>
+      <div class="form-group" style="margin:0;flex:0 0 90px">
+        <label>Free Days</label><input type="number" name="free_days" value="14" required>
+      </div>
+      <div class="form-group" style="margin:0;flex:0 0 100px">
+        <label>€/Day</label><input type="number" name="demurrage_rate_eur_day" step="0.01" required>
+      </div>
+      <div class="form-group" style="margin:0;flex:1 1 140px">
+        <label>Notes</label><input type="text" name="notes">
+      </div>
+      <button type="submit" class="btn btn-primary btn-sm">+ Add</button>
+    </form>
+  </div>
+</div>
+
+{# Fix the add_leasing_rate URL to use leasing_company_id from form #}
+
+{# ── LOCATIONS ── #}
+<div class="card" style="margin-bottom:20px" id="locations">
+  <div class="card-header"><span class="card-title">Locations</span>
+    <span class="text-muted" style="font-size:12px">Depots, supplier sites, ports</span>
+  </div>
+  <div class="card-body-flush table-wrap">
+    <table>
+      <thead><tr><th>Code</th><th>Name</th><th>Type</th><th>City</th><th>Country</th></tr></thead>
+      <tbody>
+        {% for l in locations %}
+        <tr>
+          <td class="mono">{{ l.code or '—' }}</td>
+          <td>{{ l.name }}</td>
+          <td><span class="pill pill-in-transit">{{ l.type }}</span></td>
+          <td class="muted">{{ l.city or '—' }}</td>
+          <td class="mono">{{ l.country }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5"><div class="empty-state">No locations yet</div></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="card-body" style="border-top:1px solid var(--border)">
+    <form method="POST" action="{{ url_for('admin.add_location') }}"
+          style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+      <div class="form-group" style="margin:0;flex:0 0 100px">
+        <label>Code</label><input type="text" name="code" placeholder="GE-SIL" style="text-transform:uppercase">
+      </div>
+      <div class="form-group" style="margin:0;flex:1 1 180px">
+        <label>Name</label><input type="text" name="name" placeholder="Silomar Genova" required>
+      </div>
+      <div class="form-group" style="margin:0;flex:0 0 130px">
+        <label>Type</label>
+        <select name="type">
+          <option value="DEPOT">Depot</option>
+          <option value="PORT">Port</option>
+          <option value="SUPPLIER">Supplier</option>
+          <option value="CUSTOMER">Customer</option>
+          <option value="OTHER">Other</option>
+        </select>
+      </div>
+      <div class="form-group" style="margin:0;flex:0 0 120px">
+        <label>City</label><input type="text" name="city" placeholder="Genova">
+      </div>
+      <div class="form-group" style="margin:0;flex:0 0 60px">
+        <label>Country</label><input type="text" name="country" value="IT" maxlength="2" style="text-transform:uppercase;width:50px">
+      </div>
+      <button type="submit" class="btn btn-primary btn-sm">+ Add</button>
+    </form>
+  </div>
+</div>
+
+{# ── ROAD TRANSPORT RATES ── #}
+<div class="card" style="margin-bottom:20px" id="road-rates">
+  <div class="card-header"><span class="card-title">Road Transport Rates</span>
+    <span class="text-muted" style="font-size:12px">Carrier + route + date</span>
+  </div>
+  <div class="card-body-flush table-wrap">
+    <table>
+      <thead><tr><th>Carrier</th><th>From</th><th>To</th><th>Valid From</th><th class="num">€/MT</th><th class="num">€/Trip</th><th>Notes</th></tr></thead>
+      <tbody>
+        {% for r in road_rates %}
+        <tr>
+          <td>{{ r.carrier_name }}</td>
+          <td class="muted">{{ r.from_name or '— any —' }}</td>
+          <td class="muted">{{ r.to_name or '— variable —' }}</td>
+          <td class="mono muted">{{ r.valid_from }}</td>
+          <td class="num">{{ "%.2f"|format(r.rate_eur_per_mt) if r.rate_eur_per_mt else '—' }}</td>
+          <td class="num">{{ "%.2f"|format(r.rate_eur_per_trip) if r.rate_eur_per_trip else '—' }}</td>
+          <td class="muted">{{ r.notes or '—' }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7"><div class="empty-state">No road rates yet</div></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="card-body" style="border-top:1px solid var(--border)">
+    <form method="POST" action="{{ url_for('admin.add_road_rate') }}"
+          style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+      <div class="form-group" style="margin:0;flex:1 1 150px">
+        <label>Carrier</label>
+        <select name="carrier_id" required>
+          <option value="">— select —</option>
+          {% for c in carriers %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="form-group" style="margin:0;flex:1 1 130px">
+        <label>From <span class="text-muted">(opt.)</span></label>
+        <select name="from_location_id">
+          <option value="">— any —</option>
+          {% for l in locations %}<option value="{{ l.id }}">{{ l.name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="form-group" style="margin:0;flex:1 1 130px">
+        <label>To <span class="text-muted">(opt.)</span></label>
+        <select name="to_location_id">
+          <option value="">— variable —</option>
+          {% for l in locations %}<option value="{{ l.id }}">{{ l.name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="form-group" style="margin:0;flex:0 0 120px">
+        <label>Valid From</label><input type="date" name="valid_from" required>
+      </div>
+      <div class="form-group" style="margin:0;flex:0 0 80px">
+        <label>€/MT</label><input type="number" name="rate_eur_per_mt" step="0.01">
+      </div>
+      <div class="form-group" style="margin:0;flex:0 0 80px">
+        <label>€/Trip</label><input type="number" name="rate_eur_per_trip" step="0.01">
+      </div>
+      <button type="submit" class="btn btn-primary btn-sm">+ Add</button>
+    </form>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleEdit(id) {
+  const row = document.getElementById(id);
+  row.style.display = row.style.display === 'none' ? 'table-row' : 'none';
+}
+</script>
+{% endblock %}

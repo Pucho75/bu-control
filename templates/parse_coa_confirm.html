@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}Confirm COA{% endblock %}
+{% block page_title %}Confirm COA Import{% endblock %}
+
+{% block main_content %}
+<form method="POST" action="{{ url_for('parse_docs.parse_coa_confirm') }}">
+  <input type="hidden" name="num_pages" value="{{ pages|length }}">
+
+  <div class="card" style="margin-bottom:20px">
+    <div class="card-header">
+      <span class="card-title">COA Data — {{ pages|length }} page(s) extracted</span>
+    </div>
+    <div class="card-body-flush table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>File</th>
+            <th>Container Code</th>
+            <th>Status</th>
+            <th>Production Batch</th>
+            <th>Manufacture Date</th>
+            <th>Expiration Date</th>
+            <th>Issue Date</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for i, page in pages|enumerate %}
+          <tr>
+            <td class="mono">{{ i + 1 }}</td>
+            <td class="muted" style="font-size:11px">{{ page.source_file or '—' }}</td>
+            <td>
+              <input type="hidden" name="container_id_{{ i }}" value="{{ page.container_id or '' }}">
+              {% if page.container_found %}
+                <span class="mono">{{ page.container_code or '—' }}</span>
+              {% else %}
+                {# Allow manual entry of container code when not auto-matched #}
+                <input type="text" name="manual_container_code_{{ i }}"
+                  value="{{ page.container_code or '' }}"
+                  placeholder="e.g. EXFU0725595"
+                  style="font-family:var(--font-mono);width:140px;text-transform:uppercase"
+                  title="Type container code to match manually">
+                <div style="font-size:10px;color:var(--amber);margin-top:3px">enter code to match</div>
+              {% endif %}
+            </td>
+            <td>
+              {% if page.container_found %}
+                <span class="pill pill-complete">✓ matched</span>
+              {% elif page.code_from_filename %}
+                <span class="pill pill-provisional-storage">~ from filename</span>
+              {% else %}
+                <span class="pill pill-pending">not in DB</span>
+              {% endif %}
+            </td>
+            <td>
+              <input type="text" name="production_batch_{{ i }}"
+                value="{{ page.production_batch or '' }}"
+                style="font-family:var(--font-mono);width:130px">
+            </td>
+            <td>
+              <input type="date" name="manufacture_date_{{ i }}"
+                value="{{ page.manufacture_date or '' }}">
+            </td>
+            <td>
+              <input type="date" name="expiration_date_{{ i }}"
+                value="{{ page.expiration_date or '' }}">
+            </td>
+            <td class="muted mono">{{ page.issue_date or '—' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  {% set unmatched = pages|selectattr('container_found', 'equalto', false)|list %}
+  {% if unmatched %}
+  <div class="alert alert-warning" style="margin-bottom:20px">
+    {{ unmatched|length }} container(s) not auto-matched.
+    Type the container code manually in the field above to save COA data for those rows.
+  </div>
+  {% endif %}
+
+  <div class="form-actions">
+    <a href="{{ url_for('parse_docs.parse_coa') }}" class="btn btn-ghost">← Re-upload</a>
+    <button type="submit" class="btn btn-primary">Confirm & Apply COA Data</button>
+  </div>
+</form>
+{% endblock %}
