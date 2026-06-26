@@ -227,6 +227,7 @@
           <th>Clearance</th>
           <th>Depot</th>
           <th>Status</th>
+          {% if current_role in ['CEO', 'LOGISTICS_ADMIN'] %}<th></th>{% endif %}
         </tr>
       </thead>
       <tbody>
@@ -250,6 +251,14 @@
           <td>
             <span class="pill pill-{{ c.status|lower|replace('_','-') }}">{{ c.status }}</span>
           </td>
+          {% if current_role in ['CEO', 'LOGISTICS_ADMIN'] %}
+          <td>
+            <form method="POST" action="{{ url_for('container_delete', container_id=c.id) }}"
+                  onsubmit="return confirm('Delete this container? This cannot be undone.')">
+              <button class="btn btn-sm btn-ghost" style="color:var(--red)">Delete</button>
+            </form>
+          </td>
+          {% endif %}
         </tr>
         {% else %}
         <tr><td colspan="9"><div class="empty-state">No containers yet — import B/L first</div></td></tr>

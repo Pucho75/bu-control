@@ -170,6 +170,20 @@ def dashboard():
         SELECT
             p.code              AS product,
             p.name              AS product_name,
+            -- ON ORDER = ODAs not yet fully shipped (residual per ODA summed)
+            COALESCE((
+                SELECT SUM(residual) FROM (
+                    SELECT o2.id,
+                           o2.total_mt - COALESCE((
+                               SELECT SUM(COALESCE(c2.actual_mt, c2.nominal_mt))
+                               FROM containers c2
+                               JOIN shipments s2 ON s2.id = c2.shipment_id
+                               WHERE s2.oda_id = o2.id AND c2.is_deleted = 0
+                           ), 0) AS residual
+                    FROM odas o2
+                    WHERE o2.product_id = p.id AND o2.is_deleted = 0 AND (o2.is_closed IS NULL OR o2.is_closed = 0)
+                ) sub WHERE residual > 0.001
+            ), 0) AS mt_on_order,
             -- IN TRANSIT
             COALESCE(SUM(CASE WHEN c.status IN ('IN_TRANSIT','IN_TRANSIT_ROAD')
                 THEN COALESCE(c.actual_mt, c.nominal_mt) ELSE 0 END), 0) AS mt_in_transit,
@@ -1322,6 +1336,40 @@ def oda_delete(oda_id):
 @login_required
 def guida():
     return render_template("guida.html", role=current_role())
+
+
+
+# ── Delete Container (ATB/road DDT) ──────────────────────────
+@app.route("/containers/<int:container_id>/delete", methods=["POST"])
+@login_required
+@role_required("CEO", "LOGISTICS_ADMIN")
+def container_delete(container_id):
+    db = get_db()
+    # Block if sale_lots exist
+    lots = db.execute(
+        "SELECT COUNT(*) AS n FROM sale_lots WHERE container_id=?", (container_id,)
+    ).fetchone()
+    if lots["n"] > 0:
+        flash("Cannot delete — container has lot assignments. Reset sales first.", "error")
+        return redirect(request.referrer or url_for("oda_status"))
+    # Get shipment_id
+    c = db.execute("SELECT shipment_id FROM containers WHERE id=?", (container_id,)).fetchone()
+    if not c:
+        flash("Container not found.", "error")
+        return redirect(url_for("oda_status"))
+    shipment_id = c["shipment_id"]
+    # Soft delete container
+    db.execute("UPDATE containers SET is_deleted=1, updated_at=datetime('now') WHERE id=?", (container_id,))
+    # If shipment has no other active containers, delete it too
+    remaining = db.execute(
+        "SELECT COUNT(*) AS n FROM containers WHERE shipment_id=? AND is_deleted=0 AND id!=?",
+        (shipment_id, container_id)
+    ).fetchone()
+    if remaining["n"] == 0:
+        db.execute("UPDATE shipments SET is_deleted=1, updated_at=datetime('now') WHERE id=?", (shipment_id,))
+    db.commit()
+    flash("Container deleted.", "success")
+    return redirect(request.referrer or url_for("oda_status"))
 
 
 # ── Entry point ──────────────────────────────────────────────

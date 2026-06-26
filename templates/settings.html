@@ -120,13 +120,14 @@
   <div class="card-body-flush table-wrap">
     <table>
       <thead>
-        <tr><th>Name</th><th>Country</th><th>Status</th><th></th></tr>
+        <tr><th>Name</th><th>Country</th><th>T1/T2</th><th>Status</th><th></th></tr>
       </thead>
       <tbody>
         {% for s in suppliers %}
         <tr>
           <td>{{ s.name }}</td>
           <td class="mono">{{ s.country or '—' }}</td>
+          <td class="mono">{{ s.customs_regime or '—' }}</td>
           <td><span class="pill pill-{{ 'complete' if s.is_active else 'pending' }}">{{ 'Active' if s.is_active else 'Inactive' }}</span></td>
           <td style="display:flex;gap:6px">
             <button class="btn btn-sm btn-ghost"
@@ -148,6 +149,14 @@
                 <label>Country</label>
                 <input type="text" name="country" value="{{ s.country or '' }}"
                   maxlength="2" style="text-transform:uppercase;width:60px">
+              </div>
+              <div class="form-group" style="margin:0;flex:0 0 80px">
+                <label>T1/T2</label>
+                <select name="customs_regime" style="width:80px">
+                  <option value="">—</option>
+                  <option value="T1" {% if s.customs_regime == 'T1' %}selected{% endif %}>T1</option>
+                  <option value="T2" {% if s.customs_regime == 'T2' %}selected{% endif %}>T2</option>
+                </select>
               </div>
               <button type="submit" class="btn btn-primary btn-sm">Save</button>
               <button type="button" class="btn btn-ghost btn-sm"
@@ -185,7 +194,7 @@
   <div class="card-body-flush table-wrap">
     <table>
       <thead>
-        <tr><th>Name</th><th>Country</th><th>Status</th><th></th></tr>
+        <tr><th>Name</th><th>Country</th><th>T1/T2</th><th>Status</th><th></th></tr>
       </thead>
       <tbody>
         {% for c in customers %}

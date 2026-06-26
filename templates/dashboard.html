@@ -17,6 +17,7 @@
       <thead>
         <tr>
           <th>Product</th>
+          <th class="num">On Order</th>
           <th class="num">In Transit</th>
           <th class="num">In Port</th>
           <th class="num">In Storage</th>
@@ -29,12 +30,13 @@
         {% for p in positions %}
         <tr>
           <td><span class="text-mono">{{ p.product }}</span> <span class="text-muted">{{ p.product_name }}</span></td>
+          <td class="num" style="color:var(--amber)">{% if p.mt_on_order and p.mt_on_order > 0 %}{{ "%.2f"|format(p.mt_on_order) }}{% else %}<span class="text-muted">—</span>{% endif %}</td>
           <td class="num">{% if p.mt_in_transit %}{{ "%.1f"|format(p.mt_in_transit) }}{% else %}<span class="text-muted">—</span>{% endif %}</td>
           <td class="num">{% if p.mt_in_port %}{{ "%.1f"|format(p.mt_in_port) }}{% else %}<span class="text-muted">—</span>{% endif %}</td>
-          <td class="num">{% if p.mt_in_storage and p.mt_in_storage > 0 %}{{ "%.1f"|format(p.mt_in_storage) }}{% else %}<span class="text-muted">—</span>{% endif %}</td>
+          <td class="num">{% if p.mt_in_storage and p.mt_in_storage > 0 %}{{ "%.2f"|format(p.mt_in_storage) }}{% else %}<span class="text-muted">—</span>{% endif %}</td>
           <td class="num" style="color:var(--amber)">{% if p.mt_in_order %}{{ "%.1f"|format(p.mt_in_order) }}{% else %}<span class="text-muted">—</span>{% endif %}</td>
           <td class="num" style="color:var(--green)">{% if p.mt_sold %}{{ "%.1f"|format(p.mt_sold) }}{% else %}<span class="text-muted">—</span>{% endif %}</td>
-          <td class="num" style="font-weight:500">{{ "%.1f"|format((p.mt_in_transit or 0) + (p.mt_in_port or 0) + (p.mt_in_storage or 0) + (p.mt_in_order or 0) + (p.mt_sold or 0)) }}</td>
+          <td class="num" style="font-weight:500">{{ "%.2f"|format((p.mt_on_order or 0) + (p.mt_in_transit or 0) + (p.mt_in_port or 0) + (p.mt_in_storage or 0) + (p.mt_in_order or 0) + (p.mt_sold or 0)) }}</td>
         </tr>
         {% else %}
         <tr><td colspan="5" class="muted" style="text-align:center;padding:24px">No position data yet</td></tr>

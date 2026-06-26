@@ -295,11 +295,12 @@ def edit_supplier(sid):
     db = get_db()
     try:
         db.execute("""
-            UPDATE suppliers SET name=?, country=?, updated_at=datetime('now')
+            UPDATE suppliers SET name=?, country=?, customs_regime=?, updated_at=datetime('now')
             WHERE id=?
         """, (
             request.form["name"].strip(),
             request.form.get("country", "").strip().upper() or None,
+            request.form.get("customs_regime", "").strip() or None,
             sid
         ))
         db.commit()

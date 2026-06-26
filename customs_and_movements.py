@@ -269,36 +269,39 @@ def coa_assign():
 # ── DDT PARSER ───────────────────────────────────────────────
 
 DDT_PROMPT = """
-You are parsing an Italian DDT (Documento di Trasporto) or Lettera di Vettura
-(road transport document) for a chemical trading company.
+You are parsing an Italian DDT (Documento di Trasporto) combined with a COA (Certificato di Analisi).
+The document may have 1 or 2 pages — page 1 is the DDT, page 2 is the COA.
 Extract all relevant fields and return ONLY valid JSON, no other text.
 
 Return this exact structure:
 {
-  "ddt_number": "string (look for DDT followed by number, e.g. 485/2026 or 485)",
-  "ddt_date": "ISO date YYYY-MM-DD",
-  "carrier_name": "string (transport company name)",
-  "plate_number": "string (MOTRICE/TRATTORE plate, e.g. GY989RW)",
-  "trailer_plate": "string or null (RIMORCHIO plate)",
+  "ddt_number": "string (DOC. N. or DDT number e.g. 3912)",
+  "ddt_date": "ISO date YYYY-MM-DD (DEL field on DDT)",
+  "carrier_name": "string or null (transport company)",
+  "plate_number": "string or null (TARGA AUTOMEZZO)",
+  "trailer_plate": "string or null",
   "driver": "string or null",
-  "from_location": "string (pickup location/terminal name and city)",
-  "to_location": "string (delivery location name and city)",
-  "container_code": "string or null (ISO tank code if present, e.g. EXFU6651777)",
+  "from_location": "string or null (pickup location)",
+  "to_location": "string or null (delivery location)",
+  "container_code": "string or null (ISO tank code if present, null for ATB road tankers)",
   "container_type": "ISOTANK or ATB or ONE_TON_CUBE",
   "product_description": "string or null",
-  "actual_mt": "float or null (net weight in MT — look for PESO RISCONTRATO or 2a Pesata minus 1a Pesata or NET WEIGHT)",
+  "actual_mt": "float or null (net weight in MT — look for quantity in T column, or PESO RISCONTRATO, or KG/1000)",
   "gross_weight_kg": "float or null",
   "tare_weight_kg": "float or null",
-  "forwarder": "string or null (SPEDIZIONIERE field)",
-  "oda_reference": "string or null (any order reference number found)"
+  "oda_reference": "string or null (look for Vs/Rif., Vs. Rif., Riferimento, Rif. ordine, NS. RIFERIMENTO)",
+  "production_lot": "string or null (look for Lotto in product line OR Lotto NR / Lot NR on COA page)",
+  "manufacture_date": "ISO date YYYY-MM-DD or null (from COA: Data di carico, Date of loading)",
+  "expiration_date": "ISO date YYYY-MM-DD or null (from COA: scadenza, expiry)"
 }
 
 Rules:
-- ddt_date: use DATA/ORA POS. field or document date
-- actual_mt: if PESO RISCONTRATO is present use that. Otherwise compute 2a Pesata - 1a Pesata and convert KG to MT (divide by 1000)
-- container_code: normalize to no spaces or dashes (e.g. EXFU6651777)
-- from_location: TERMINAL RITIRO CONTAINER or CARICATORE field
-- to_location: TERMINAL CONSEGNA CONTAINER or DESTINAZIONE field
+- ddt_number: look for DOC. N. field or number after DDT
+- actual_mt: for Rainoldi-style DDT look for quantity column in T (Tonnellate) — e.g. 22,540 T = 22.54 MT
+- container_type: if IMBALLO is Autobotte use ATB, if Isotank use ISOTANK, if IBC/cubitainer use ONE_TON_CUBE
+- oda_reference: Vs/Rif. field contains supplier order ref e.g. 2026-0039
+- production_lot: may appear in product description line as "Lotto XXXXXX" OR on COA page
+- This document may be 2 pages (DDT + COA) — extract lot from whichever page has it
 - If a field is not found use null
 """
 
@@ -423,9 +426,10 @@ def parse_ddt_confirm():
         INSERT INTO containers (
             container_code, shipment_id, container_type, transport_mode,
             nominal_mt, actual_mt, ddt_number, plate_number,
+            production_lot, manufacture_date, expiration_date,
             storage_facility_id, storage_entry_date,
             status, source, entered_by
-        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     """, (
         container_code,
         shipment_id,
@@ -435,6 +439,9 @@ def parse_ddt_confirm():
         float(form.get("actual_mt") or 0) or None,
         form.get("ddt_number"),
         form.get("plate_number") or None,
+        form.get("production_lot") or None,
+        form.get("manufacture_date") or None,
+        form.get("expiration_date") or None,
         form.get("storage_facility_id") or None,
         form.get("ddt_date") or None,
         "IN_STORAGE" if form.get("storage_facility_id") else "IN_TRANSIT_ROAD",
@@ -442,6 +449,11 @@ def parse_ddt_confirm():
         session.get("username", "")
     ))
     db.commit()
+
+    # Close ODA if checkbox was ticked
+    if form.get("close_oda"):
+        db.execute("UPDATE odas SET is_closed=1, updated_at=datetime('now') WHERE id=?", (oda_id,))
+        db.commit()
 
     # Pop queue
     queue = session.get("ddt_queue", [])

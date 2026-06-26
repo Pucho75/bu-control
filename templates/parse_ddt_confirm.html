@@ -114,9 +114,53 @@
     </div>
   </div>
 
+  <div class="card" style="margin-bottom:20px">
+    <div class="card-body">
+      <label style="display:flex;align-items:center;gap:10px;font-size:14px;cursor:pointer">
+        <input type="checkbox" name="close_oda" value="1">
+        <span>Questo DDT <strong>completa l'ODA</strong> — segna l'ODA come chiuso (nessuna ulteriore spedizione attesa)</span>
+      </label>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:20px">
+    <div class="card-header"><span class="card-title">COA Data</span>
+      <span class="text-muted" style="font-size:12px">From same document — auto-extracted if present</span>
+    </div>
+    <div class="card-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Production Lot</label>
+          <input type="text" name="production_lot"
+            value="{{ extracted.production_lot or '' }}"
+            style="font-family:var(--font-mono)">
+        </div>
+        <div class="form-group">
+          <label>Manufacture Date</label>
+          <input type="date" name="manufacture_date"
+            value="{{ extracted.manufacture_date or '' }}">
+        </div>
+        <div class="form-group">
+          <label>Expiration Date</label>
+          <input type="date" name="expiration_date"
+            value="{{ extracted.expiration_date or '' }}">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:20px">
+    <div class="card-body">
+      <label style="display:flex;align-items:center;gap:10px;font-size:14px;cursor:pointer">
+        <input type="checkbox" name="close_oda" value="1">
+        <span>Questo DDT <strong>completa l'ODA</strong> — nessuna ulteriore spedizione attesa</span>
+      </label>
+    </div>
+  </div>
+
   <div class="form-actions">
     <a href="{{ url_for('ops.parse_ddt') }}" class="btn btn-ghost">← Re-upload</a>
-    <button type="submit" class="btn btn-primary">Confirm & Save DDT</button>
+    <button type="submit" class="btn btn-primary">Confirm & Save DDT+COA</button>
   </div>
 </form>
 {% endblock %}

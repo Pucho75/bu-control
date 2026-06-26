@@ -117,7 +117,7 @@
         <a href="{{ url_for('parse_docs.parse_coa') }}"><span class="nav-icon">↑</span> COA</a>
       </li>
       <li class="nav-item {% if request.endpoint == 'ops.parse_ddt' %}active{% endif %}">
-        <a href="{{ url_for('ops.parse_ddt') }}"><span class="nav-icon">↑</span> DDT</a>
+        <a href="{{ url_for('ops.parse_ddt') }}"><span class="nav-icon">↑</span> DDT+COA</a>
       </li>
       <li class="nav-section-title" style="padding:16px 16px 4px;font-size:10px;letter-spacing:.1em;color:var(--text-secondary);text-transform:uppercase">Outbound</li>
       <li class="nav-item {% if request.endpoint == 'sales_parse.parse_odv' %}active{% endif %}">

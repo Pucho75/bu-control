@@ -255,6 +255,13 @@ def parse_oda_next():
                 matched_product_id = row["product_id"]
                 alias_found = True
 
+    # Pre-fill customs_regime from supplier default if not extracted
+    if matched_supplier_id and not extracted.get("customs_regime"):
+        sr = db.execute("SELECT customs_regime FROM suppliers WHERE id=?",
+                        (matched_supplier_id,)).fetchone()
+        if sr and sr["customs_regime"]:
+            extracted["customs_regime"] = sr["customs_regime"]
+
     remaining = len(queue)
     return render_template("parse_oda_confirm.html",
         extracted=extracted,
@@ -642,30 +649,33 @@ def parse_bl_confirm():
 
 COA_PROMPT = """
 You are parsing a Certificate of Analysis (COA) document from a chemical supplier.
-This may be one page of a multi-page PDF. Each page covers one container.
+This may be for an ISO tank container OR an ATB road tanker. Each page covers one delivery.
 Extract the following fields and return ONLY valid JSON, no other text.
 
 Return this exact structure:
 {
   "pages": [
     {
-      "container_code": "string (ISO container code, format like PCVU2663922)",
-      "production_batch": "string (batch or lot number)",
+      "container_code": "string or null (ISO container code 4 letters + 7 digits, e.g. PCVU2663922 — null for road tankers)",
+      "ddt_number": "string or null (delivery note number, look for: Delivery note NR, DDT, Bolla, Documento di trasporto)",
+      "tank_number": "string or null (tank or serbatoio number e.g. S1501)",
+      "production_batch": "string (batch or lot number — look for: Lotto NR, Lot NR, BATCH, LOT, PARTITA)",
       "manufacture_date": "ISO date YYYY-MM-DD or null",
       "expiration_date": "ISO date YYYY-MM-DD or null",
-      "issue_date": "ISO date YYYY-MM-DD or null"
+      "issue_date": "ISO date YYYY-MM-DD or null",
+      "loading_date": "ISO date YYYY-MM-DD or null (look for: Data di carico, Date of loading)"
     }
   ]
 }
 
 Rules:
-- container_code: look for ISO container code (4 letters + 7 digits). May appear next to BATCH line.
-- production_batch: look for BATCH, LOT, or similar label followed by a number
-- manufacture_date: look for MANUFACTURE DATE, PRODUCTION DATE, MFG DATE
-- expiration_date: look for EXPIRATION DATE, EXPIRY DATE, EXP DATE, BEST BEFORE
-- issue_date: look for DATE OF ISSUE
-- Convert all dates to ISO format YYYY-MM-DD (input may be MM/DD/YYYY or DD/MM/YYYY)
-- If multiple COAs appear on different pages, return one entry per page in the pages array
+- container_code: only extract if you find a real ISO container code (4 uppercase letters + 7 digits). For road tankers this will be null.
+- ddt_number: look for delivery note number, bolla di consegna, DDT number — this links the COA to the ATB road delivery
+- tank_number: the production tank (Serbatoio/Tank field) — different from container code
+- production_batch: look for Lotto NR, Lot NR, BATCH, LOT, PARTITA
+- loading_date: date of loading/consegna — use to match if no DDT number found
+- Convert all dates to ISO format YYYY-MM-DD
+- If multiple COAs on different pages, return one entry per page
 - If a field is not found, use null
 """
 
