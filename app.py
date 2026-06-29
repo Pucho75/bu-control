@@ -100,8 +100,34 @@ def login_required(f):
     def decorated(*args, **kwargs):
         if "user_id" not in session:
             return redirect(url_for("login", next=request.path))
+        if session.get("must_change_password") and request.endpoint != "change_password":
+            return redirect(url_for("change_password"))
         return f(*args, **kwargs)
     return decorated
+
+
+@app.route("/change-password", methods=["GET", "POST"])
+def change_password():
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+    error = None
+    if request.method == "POST":
+        pw1 = request.form.get("password", "")
+        pw2 = request.form.get("password2", "")
+        if len(pw1) < 8:
+            error = "La password deve essere di almeno 8 caratteri."
+        elif pw1 != pw2:
+            error = "Le password non coincidono."
+        else:
+            from werkzeug.security import generate_password_hash
+            db = get_db()
+            db.execute("UPDATE users SET password_hash=?, must_change_password=0 WHERE id=?",
+                (generate_password_hash(pw1), session["user_id"]))
+            db.commit()
+            session["must_change_password"] = False
+            flash("Password aggiornata con successo.", "success")
+            return redirect(url_for("dashboard"))
+    return render_template("change_password.html", error=error)
 
 def role_required(*roles):
     def decorator(f):
@@ -146,9 +172,11 @@ def login():
         ).fetchone()
         if user and check_password_hash(user["password_hash"], password):
             session.permanent = True
+            session.permanent = True
             session["user_id"]  = user["id"]
             session["username"] = user["username"]
             session["role"]     = user["role"]
+            session["must_change_password"] = bool(user["must_change_password"])
             next_url = request.args.get("next") or url_for("dashboard")
             return redirect(next_url)
         error = "Invalid username or password."
