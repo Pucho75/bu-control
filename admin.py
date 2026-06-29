@@ -536,9 +536,13 @@ def import_reference():
             location = str(row[2].value).strip() if row[2].value else None
             country = str(row[3].value).strip().upper() if row[3].value else "IT"
             if code and name:
-                db.execute("""INSERT OR IGNORE INTO storage_facilities
-                    (code, name, location, country) VALUES (?,?,?,?)""",
-                    (code, name, location, country))
+                existing = db.execute("SELECT id FROM storage_facilities WHERE code=?", (code,)).fetchone()
+                if existing:
+                    db.execute("UPDATE storage_facilities SET name=?,location=COALESCE(?,location),country=? WHERE id=?",
+                               (name, location, country, existing["id"]))
+                else:
+                    db.execute("INSERT INTO storage_facilities (code, name, location, country) VALUES (?,?,?,?)",
+                               (code, name, location, country))
                 n += 1
         counts["facilities"] = n
 
@@ -550,8 +554,12 @@ def import_reference():
             code = str(row[0].value).strip().upper() if row[0].value else None
             name = str(row[1].value).strip() if row[1].value else None
             if name:
-                db.execute("INSERT OR IGNORE INTO carriers (code, name) VALUES (?,?)",
-                    (code, name))
+                existing = db.execute("SELECT id FROM carriers WHERE name=?", (name,)).fetchone()
+                if existing:
+                    db.execute("UPDATE carriers SET code=COALESCE(?,code) WHERE id=?",
+                               (code, existing["id"]))
+                else:
+                    db.execute("INSERT INTO carriers (code, name) VALUES (?,?)", (code, name))
                 n += 1
         counts["carriers"] = n
 
@@ -589,9 +597,13 @@ def import_reference():
             city = str(row[3].value).strip() if row[3].value else None
             country = str(row[4].value).strip().upper() if row[4].value else "IT"
             if name:
-                db.execute("""INSERT OR IGNORE INTO locations
-                    (code, name, type, city, country) VALUES (?,?,?,?,?)""",
-                    (code, name, ltype, city, country))
+                existing = db.execute("SELECT id FROM locations WHERE name=?", (name,)).fetchone()
+                if existing:
+                    db.execute("UPDATE locations SET code=COALESCE(?,code),type=?,city=COALESCE(?,city),country=? WHERE id=?",
+                               (code, ltype, city, country, existing["id"]))
+                else:
+                    db.execute("INSERT INTO locations (code, name, type, city, country) VALUES (?,?,?,?,?)",
+                               (code, name, ltype, city, country))
                 n += 1
         counts["locations"] = n
 
