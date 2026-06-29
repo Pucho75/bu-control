@@ -81,9 +81,9 @@
           <td class="muted mono">{{ o.expected_delivery_month or '—' }}</td>
           <td class="num">{{ "%.1f"|format(o.total_mt) }}</td>
           {% if can('sees_prices') %}
-          <td class="num">{{ "%.2f"|format(o.price_eur_per_mt) if o.price_eur_per_mt else '—' }}</td>
+          <td class="num">{{ "%.2f"|format(o.computed_price_eur) if o.computed_price_eur else '—' }}</td>
           <td class="num">{{ "%.2f"|format(o.price_usd_per_mt) if o.price_usd_per_mt else '—' }}</td>
-          <td class="num mono">{{ "%.4f"|format(o.exchange_rate) if o.exchange_rate else '—' }}</td>
+          <td class="num mono">{{ "%.4f"|format(o.shipment_fx_rate) if o.shipment_fx_rate else '—' }}</td>
           {% endif %}
           {# B/Ls #}
           <td>

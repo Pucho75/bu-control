@@ -139,6 +139,9 @@
       <li class="nav-item {% if request.endpoint == 'ops.coa_assign' %}active{% endif %}">
         <a href="{{ url_for('ops.coa_assign') }}"><span class="nav-icon">◎</span> COA Assign</a>
       </li>
+      <li class="nav-item {% if request.endpoint == 'coa_repository' %}active{% endif %}">
+        <a href="{{ url_for('coa_repository') }}"><span class="nav-icon">◎</span> COA Archive</a>
+      </li>
       <li class="nav-item {% if request.endpoint == 'ops.demurrage' %}active{% endif %}">
         <a href="{{ url_for('ops.demurrage') }}"><span class="nav-icon">◉</span> Demurrage</a>
       </li>

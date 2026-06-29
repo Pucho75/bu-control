@@ -16,7 +16,12 @@ SELECT
     su.name                     AS supplier_name,
     s.vessel_name,
     s.bl_date,
-    o.price_eur_per_mt          AS purchase_price_eur_per_mt,
+    -- Use fx_rate_invoice from shipment for USD ODAs, fallback to price_eur_per_mt
+    CASE WHEN o.currency = 'USD' AND s.fx_rate_invoice IS NOT NULL AND o.price_usd_per_mt IS NOT NULL
+         THEN ROUND(o.price_usd_per_mt / s.fx_rate_invoice, 4)
+         ELSE o.price_eur_per_mt
+    END                         AS purchase_price_eur_per_mt,
+    s.fx_rate_invoice,
     o.exchange_rate,
     -- Total MT
     SUM(COALESCE(c.actual_mt, c.nominal_mt))    AS total_mt,
@@ -79,7 +84,9 @@ SELECT
     COALESCE(SUM(c.transport_to_storage_eur) / NULLIF(SUM(COALESCE(c.actual_mt, c.nominal_mt)), 0), 0) AS transport_to_storage_per_mt,
     -- Full carrying value of unsold MT
     (SUM(COALESCE(c.actual_mt, c.nominal_mt)) - COALESCE(SUM(sl_agg.mt_sold), 0))
-        * (o.price_eur_per_mt
+        * (CASE WHEN o.currency = 'USD' AND s.fx_rate_invoice IS NOT NULL AND o.price_usd_per_mt IS NOT NULL
+                THEN ROUND(o.price_usd_per_mt / s.fx_rate_invoice, 4)
+                ELSE o.price_eur_per_mt END
            + COALESCE((
                SELECT dc.commission FROM delivery_costs dc
                WHERE (dc.product_id  = o.product_id  OR dc.product_id  IS NULL)

@@ -27,9 +27,9 @@
           <td class="mono">{{ o.product_code }}</td>
           <td class="num">{{ "%.2f"|format(o.total_mt) }}</td>
           {% if can('sees_prices') %}
-          <td class="num">{{ "%.2f"|format(o.price_eur_per_mt) }}</td>
+          <td class="num">{% if o.computed_price_eur %}{{ "%.2f"|format(o.computed_price_eur) }}{% else %}—{% endif %}</td>
           <td class="num">{% if o.price_usd_per_mt %}{{ "%.2f"|format(o.price_usd_per_mt) }}{% else %}—{% endif %}</td>
-          <td class="num mono">{% if o.exchange_rate %}{{ "%.4f"|format(o.exchange_rate) }}{% else %}—{% endif %}</td>
+          <td class="num mono">{% if o.shipment_fx_rate %}{{ "%.4f"|format(o.shipment_fx_rate) }}{% else %}—{% endif %}</td>
           {% endif %}
           <td class="muted mono">{{ o.order_date }}</td>
         </tr>

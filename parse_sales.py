@@ -460,7 +460,9 @@ def parse_sales_ddt():
           AND COALESCE(c.actual_mt, c.nominal_mt) - COALESCE((
               SELECT SUM(sl.mt_drawn) FROM sale_lots sl WHERE sl.container_id = c.id
           ), 0) > 0
-        ORDER BY c.production_lot, o.oda_code
+        ORDER BY c.customs_clearance_date ASC NULLS LAST,
+                 c.storage_entry_date ASC NULLS LAST,
+                 o.order_date ASC
     """).fetchall()
 
     # Build sale_lines: try to match ODV reference to group sales by product
@@ -530,7 +532,9 @@ def parse_sales_ddt():
               AND COALESCE(c.actual_mt, c.nominal_mt) - COALESCE((
                   SELECT SUM(sl.mt_drawn) FROM sale_lots sl WHERE sl.container_id = c.id
               ), 0) > 0
-            ORDER BY c.production_lot, o.oda_code
+            ORDER BY c.customs_clearance_date ASC NULLS LAST,
+                     c.storage_entry_date ASC NULLS LAST,
+                     o.order_date ASC
         """, (product_id,)).fetchall()
 
     lots = extracted.get("production_lots") or (
@@ -544,11 +548,24 @@ def parse_sales_ddt():
             lc = get_lot_containers_for_product(s["product_id"], lots)
             av = get_all_available_for_product(s["product_id"])
             matched_ids = {c["id"] for c in lc}
+
+            # Auto-FIFO: if no lot-matched containers, suggest from available in FIFO order
+            fifo_suggested = []
+            if not lc and av:
+                remaining = s["provisional_mt"] or 0
+                for c in av:
+                    if remaining <= 0:
+                        break
+                    draw = min(c["available_mt"], remaining)
+                    fifo_suggested.append({"container": dict(c), "draw_mt": round(draw, 3)})
+                    remaining -= draw
+
             sale_lines.append({
                 "sale": dict(s),
                 "lot_containers": lc,
                 "all_available": [dict(r) for r in av],
                 "matched_ids": matched_ids,
+                "fifo_suggested": fifo_suggested,
             })
         carriers = db.execute("SELECT * FROM carriers WHERE is_active=1 ORDER BY name").fetchall()
         return render_template("parse_sales_ddt_confirm.html",

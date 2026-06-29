@@ -29,27 +29,32 @@
           <tr>
             <td class="mono">{{ i + 1 }}</td>
             <td class="muted" style="font-size:11px">{{ page.source_file or '—' }}</td>
-            <td>
-              <input type="hidden" name="container_id_{{ i }}" value="{{ page.container_id or '' }}">
+            <input type="hidden" name="saved_filename_{{ i }}" value="{{ page._saved_filename or '' }}">
+            <input type="hidden" name="original_name_{{ i }}" value="{{ page._original_name or '' }}">
+            <td colspan="2">
               {% if page.container_found %}
+                <input type="hidden" name="container_id_{{ i }}" value="{{ page.container_id or '' }}">
                 <span class="mono">{{ page.container_code or '—' }}</span>
+                <span class="pill pill-complete" style="margin-left:8px">✓ matched</span>
+              {% elif page.available_containers %}
+                {# Multi-select checkboxes for containers without lot #}
+                <div style="font-size:12px;color:var(--amber);margin-bottom:6px">
+                  Select container(s) to assign this lot to:
+                </div>
+                {% for c in page.available_containers %}
+                <label style="display:flex;align-items:center;gap:8px;margin-bottom:4px;font-size:13px;cursor:pointer">
+                  <input type="checkbox" name="multi_container_{{ i }}" value="{{ c.id }}">
+                  <span class="mono">{{ c.container_code or 'ATB' }}</span>
+                  <span class="text-muted">{{ c.oda_code }} — {{ c.product_code }} — {{ "%.2f"|format((c.actual_mt or c.nominal_mt or 0)) }} MT</span>
+                </label>
+                {% endfor %}
               {% else %}
-                {# Allow manual entry of container code when not auto-matched #}
+                <input type="hidden" name="container_id_{{ i }}" value="">
                 <input type="text" name="manual_container_code_{{ i }}"
                   value="{{ page.container_code or '' }}"
                   placeholder="e.g. EXFU0725595"
-                  style="font-family:var(--font-mono);width:140px;text-transform:uppercase"
-                  title="Type container code to match manually">
+                  style="font-family:var(--font-mono);width:140px;text-transform:uppercase">
                 <div style="font-size:10px;color:var(--amber);margin-top:3px">enter code to match</div>
-              {% endif %}
-            </td>
-            <td>
-              {% if page.container_found %}
-                <span class="pill pill-complete">✓ matched</span>
-              {% elif page.code_from_filename %}
-                <span class="pill pill-provisional-storage">~ from filename</span>
-              {% else %}
-                <span class="pill pill-pending">not in DB</span>
               {% endif %}
             </td>
             <td>

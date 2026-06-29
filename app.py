@@ -624,7 +624,21 @@ def oda_status():
             -- Closed = all MT sold
             CASE WHEN COUNT(DISTINCT c.id) > 0
                   AND COUNT(DISTINCT c.id) FILTER (WHERE c.status = 'FULLY_SOLD') = COUNT(DISTINCT c.id)
-                 THEN 1 ELSE 0 END AS is_closed
+                 THEN 1 ELSE 0 END AS is_closed,
+            -- FX rate from most recent shipment
+            (SELECT sh2.fx_rate_invoice FROM shipments sh2
+             WHERE sh2.oda_id = o.id AND sh2.is_deleted = 0
+             AND sh2.fx_rate_invoice IS NOT NULL
+             ORDER BY sh2.bl_date DESC LIMIT 1) AS shipment_fx_rate,
+            -- Computed EUR price
+            CASE WHEN o.currency = 'USD' AND o.price_usd_per_mt IS NOT NULL THEN
+                ROUND(o.price_usd_per_mt / COALESCE(
+                    (SELECT sh2.fx_rate_invoice FROM shipments sh2
+                     WHERE sh2.oda_id = o.id AND sh2.is_deleted = 0
+                     AND sh2.fx_rate_invoice IS NOT NULL
+                     ORDER BY sh2.bl_date DESC LIMIT 1),
+                    o.exchange_rate, 1), 2)
+            ELSE o.price_eur_per_mt END AS computed_price_eur
         FROM odas o
         JOIN suppliers s ON s.id = o.supplier_id
         JOIN products p  ON p.id = o.product_id
@@ -633,12 +647,12 @@ def oda_status():
         WHERE {' AND '.join(where)}
         GROUP BY o.id
         ORDER BY
-            CASE WHEN :sort = 'date_asc'  THEN o.order_date END ASC,
-            CASE WHEN :sort = 'date_desc' THEN o.order_date END DESC,
-            CASE WHEN :sort = 'code_asc'  THEN o.oda_code   END ASC,
-            CASE WHEN :sort = 'code_desc' THEN o.oda_code   END DESC,
+            CASE WHEN ? = 'date_asc'  THEN o.order_date END ASC,
+            CASE WHEN ? = 'date_desc' THEN o.order_date END DESC,
+            CASE WHEN ? = 'code_asc'  THEN o.oda_code   END ASC,
+            CASE WHEN ? = 'code_desc' THEN o.oda_code   END DESC,
             o.order_date DESC
-    """, {**dict(zip(['?']*len(params), params)), 'sort': filters['sort']}).fetchall()
+    """, params + [filters['sort'], filters['sort'], filters['sort'], filters['sort']]).fetchall()
 
     # Apply status filter after aggregation
     if filters["status"] == "open":
@@ -823,7 +837,21 @@ def delete_container(container_id):
 def orders():
     db = get_db()
     odas = db.execute("""
-        SELECT o.*, s.name AS supplier_name, p.code AS product_code
+        SELECT o.*, s.name AS supplier_name, p.code AS product_code,
+               -- Get fx_rate from most recent shipment
+               (SELECT sh.fx_rate_invoice FROM shipments sh
+                WHERE sh.oda_id = o.id AND sh.is_deleted = 0
+                AND sh.fx_rate_invoice IS NOT NULL
+                ORDER BY sh.bl_date DESC LIMIT 1) AS shipment_fx_rate,
+               -- Computed EUR price
+               CASE WHEN o.currency = 'USD' AND o.price_usd_per_mt IS NOT NULL THEN
+                   ROUND(o.price_usd_per_mt / COALESCE(
+                       (SELECT sh.fx_rate_invoice FROM shipments sh
+                        WHERE sh.oda_id = o.id AND sh.is_deleted = 0
+                        AND sh.fx_rate_invoice IS NOT NULL
+                        ORDER BY sh.bl_date DESC LIMIT 1),
+                       o.exchange_rate, 1), 2)
+               ELSE o.price_eur_per_mt END AS computed_price_eur
         FROM odas o
         JOIN suppliers s ON s.id = o.supplier_id
         JOIN products p  ON p.id = o.product_id
@@ -1486,6 +1514,53 @@ def shipment_fx_update(shipment_id):
     if fx_payment: msg += f" | Pagamento: {fx_payment:.4f}"
     flash(msg, "success")
     return redirect(url_for("oda_detail", oda_id=s["oda_id"]))
+
+
+
+# ── COA Repository ───────────────────────────────────────────
+@app.route("/coa-repository")
+@login_required
+def coa_repository():
+    db = get_db()
+    product_filter = request.args.get("product_id", "")
+    where = ["1=1"]
+    params = []
+    if product_filter:
+        where.append("cd.product_id=?")
+        params.append(product_filter)
+
+    docs = db.execute(f"""
+        SELECT cd.*, p.code AS product_code, p.name AS product_name,
+               s.name AS supplier_name, c.container_code,
+               o.oda_code
+        FROM coa_documents cd
+        LEFT JOIN products p   ON p.id  = cd.product_id
+        LEFT JOIN containers c ON c.id  = cd.container_id
+        LEFT JOIN shipments sh ON sh.id = cd.shipment_id
+        LEFT JOIN odas o       ON o.id  = sh.oda_id
+        LEFT JOIN suppliers s  ON s.id  = o.supplier_id
+        WHERE {" AND ".join(where)}
+        ORDER BY cd.uploaded_at DESC
+    """, params).fetchall()
+
+    products = db.execute("SELECT * FROM products WHERE is_active=1 ORDER BY code").fetchall()
+    return render_template("coa_repository.html", docs=docs, products=products,
+                           product_filter=product_filter)
+
+
+@app.route("/coa-repository/<int:doc_id>/download")
+@login_required
+def coa_download(doc_id):
+    from flask import send_from_directory
+    db = get_db()
+    doc = db.execute("SELECT * FROM coa_documents WHERE id=?", (doc_id,)).fetchone()
+    if not doc:
+        flash("Document not found.", "error")
+        return redirect(url_for("coa_repository"))
+    import os
+    coa_dir = os.path.join(os.path.dirname(__file__), "uploads", "coas")
+    return send_from_directory(coa_dir, doc["filename"],
+                               download_name=doc["original_name"] or doc["filename"])
 
 
 # ── Entry point ──────────────────────────────────────────────

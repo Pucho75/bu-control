@@ -717,6 +717,15 @@ def parse_coa():
         ext = f.filename.rsplit(".", 1)[1].lower()
         mime_type = "application/pdf" if ext == "pdf" else f"image/{ext}"
         b64 = file_to_base64(file_bytes, mime_type)
+
+        # Save COA file to repository
+        import os, uuid
+        coa_dir = os.path.join(os.path.dirname(__file__), "uploads", "coas")
+        os.makedirs(coa_dir, exist_ok=True)
+        safe_name = f"{uuid.uuid4().hex}_{f.filename.replace(' ', '_')}"
+        with open(os.path.join(coa_dir, safe_name), "wb") as out:
+            out.write(file_bytes)
+
         try:
             extracted = call_claude(COA_PROMPT, b64, mime_type)
             pages = extracted.get("pages", [])
@@ -727,6 +736,8 @@ def parse_coa():
             continue
 
         for page in pages:
+            page["_saved_filename"] = safe_name
+            page["_original_name"] = f.filename
             code = page.get("container_code")
             container = None
             if code:
@@ -759,12 +770,32 @@ def parse_coa():
             page["manufacture_date"] = normalize_date(page.get("manufacture_date"))
             page["expiration_date"]  = normalize_date(page.get("expiration_date"))
             page["issue_date"]       = normalize_date(page.get("issue_date"))
+            # If no container found, look up available containers by product
+            available_containers = []
+            if not container:
+                # Try to match by product name from COA
+                prod_desc = (page.get("product_description") or "").upper()
+                prod_rows = db.execute("""
+                    SELECT DISTINCT c.id, c.container_code, c.actual_mt, c.nominal_mt,
+                           o.oda_code, p.code AS product_code
+                    FROM containers c
+                    JOIN shipments s ON s.id = c.shipment_id
+                    JOIN odas o ON o.id = s.oda_id
+                    JOIN products p ON p.id = o.product_id
+                    WHERE c.status IN ('IN_TRANSIT','IN_PORT','IN_STORAGE')
+                      AND c.production_lot IS NULL
+                      AND c.is_deleted = 0
+                    ORDER BY o.order_date DESC, c.id
+                """).fetchall()
+                available_containers = [dict(r) for r in prod_rows]
+
             all_pages.append({
                 **page,
                 "source_file": f.filename,
                 "container_found": container is not None and not page.get("code_from_filename"),
                 "code_from_filename": page.get("code_from_filename", False),
                 "container_id": container["id"] if container else None,
+                "available_containers": available_containers,
             })
 
     if not all_pages:
@@ -786,10 +817,17 @@ def parse_coa_confirm():
     updated = 0
 
     for i in range(num_pages):
-        container_id = form.get(f"container_id_{i}")
+        # Collect container IDs: single, multi-checkbox, manual, or ATB DDT
+        container_ids = []
 
-        # If not auto-matched, try to resolve manual container code entry
-        if not container_id:
+        single_id = form.get(f"container_id_{i}")
+        if single_id:
+            container_ids.append(single_id)
+
+        multi_ids = form.getlist(f"multi_container_{i}")
+        container_ids.extend(multi_ids)
+
+        if not container_ids:
             manual_code = form.get(f"manual_container_code_{i}", "").strip()
             if manual_code:
                 normalized = normalize_container_code(manual_code)
@@ -802,25 +840,58 @@ def parse_coa_confirm():
                         (normalized[:10] + "%",)
                     ).fetchone()
                 if row:
-                    container_id = str(row["id"])
+                    container_ids.append(str(row["id"]))
 
-        if not container_id:
+        if not container_ids:
+            ddt_num = form.get(f"ddt_number_{i}", "").strip()
+            if ddt_num:
+                row = db.execute(
+                    "SELECT id FROM containers WHERE ddt_number=? AND is_deleted=0",
+                    (ddt_num,)
+                ).fetchone()
+                if row:
+                    container_ids.append(str(row["id"]))
+
+        if not container_ids:
             continue
 
         production_batch = form.get(f"production_batch_{i}")
         manufacture_date = normalize_date(form.get(f"manufacture_date_{i}")) or None
         expiration_date  = normalize_date(form.get(f"expiration_date_{i}")) or None
 
-        # Update container with COA data
-        db.execute("""
-            UPDATE containers SET
-                production_lot=?,
-                manufacture_date=?,
-                expiration_date=?,
-                updated_at=datetime('now')
-            WHERE id=?
-        """, (production_batch, manufacture_date, expiration_date, container_id))
-        updated += 1
+        for container_id in container_ids:
+            # Update container with COA data
+            db.execute("""
+                UPDATE containers SET
+                    production_lot=?,
+                    manufacture_date=?,
+                    expiration_date=?,
+                    updated_at=datetime('now')
+                WHERE id=?
+            """, (production_batch, manufacture_date, expiration_date, container_id))
+
+            # Save COA document record
+            saved_filename = form.get(f"saved_filename_{i}")
+            original_name  = form.get(f"original_name_{i}")
+            if saved_filename:
+                c = db.execute("SELECT shipment_id FROM containers WHERE id=?", (container_id,)).fetchone()
+                sh = db.execute("SELECT oda_id FROM shipments WHERE id=?", (c["shipment_id"],)).fetchone() if c else None
+                p_id = db.execute("SELECT product_id FROM odas WHERE id=?", (sh["oda_id"],)).fetchone() if sh else None
+                db.execute("""
+                    INSERT INTO coa_documents
+                        (container_id, shipment_id, product_id, lot_number,
+                         filename, original_name, uploaded_by)
+                    VALUES (?,?,?,?,?,?,?)
+                """, (
+                    container_id,
+                    c["shipment_id"] if c else None,
+                    p_id["product_id"] if p_id else None,
+                    production_batch,
+                    saved_filename,
+                    original_name,
+                    session.get("username", "")
+                ))
+            updated += 1
 
     db.commit()
     session.pop("coa_draft", None)

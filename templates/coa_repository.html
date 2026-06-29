@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}COA Repository{% endblock %}
+{% block page_title %}COA Repository{% endblock %}
+
+{% block main_content %}
+<div class="card" style="margin-bottom:20px">
+  <div class="card-body">
+    <form method="GET" style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">
+      <div class="form-group" style="margin:0;flex:0 0 160px">
+        <label>Product</label>
+        <select name="product_id" onchange="this.form.submit()">
+          <option value="">— all —</option>
+          {% for p in products %}
+          <option value="{{ p.id }}" {% if product_filter == p.id|string %}selected{% endif %}>
+            {{ p.code }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <a href="{{ url_for('coa_repository') }}" class="btn btn-ghost btn-sm">Clear</a>
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <span class="card-title">Certificates of Analysis</span>
+    <span class="text-muted" style="font-size:12px">{{ docs|length }} document(s)</span>
+  </div>
+  <div class="card-body-flush table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Product</th>
+          <th>Supplier</th>
+          <th>ODA</th>
+          <th>Container</th>
+          <th>Lot</th>
+          <th>Uploaded by</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for d in docs %}
+        <tr>
+          <td class="mono muted">{{ d.uploaded_at[:10] }}</td>
+          <td class="mono">{{ d.product_code or '—' }}</td>
+          <td>{{ d.supplier_name or '—' }}</td>
+          <td class="mono muted">{{ d.oda_code or '—' }}</td>
+          <td class="mono">{{ d.container_code or '—' }}</td>
+          <td class="mono">{{ d.lot_number or '—' }}</td>
+          <td class="muted">{{ d.uploaded_by or '—' }}</td>
+          <td>
+            <a href="{{ url_for('coa_download', doc_id=d.id) }}"
+               class="btn btn-sm btn-ghost">↓ Download</a>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="8"><div class="empty-state">No COAs uploaded yet</div></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
