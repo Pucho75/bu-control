@@ -132,6 +132,51 @@
   </div>
 </div>
 
+{# ── Exchange Rate ── #}
+{% if oda.currency == 'USD' %}
+<div class="card" style="margin-bottom:20px">
+  <div class="card-header"><span class="card-title">Tassi di Cambio EUR/USD</span></div>
+  <div class="card-body">
+    <form method="POST" action="{{ url_for('oda_fx_update', oda_id=oda.id) }}"
+          style="display:flex;gap:16px;align-items:flex-end;flex-wrap:wrap">
+      <div class="form-group" style="margin:0">
+        <label>Data Fattura Fornitore</label>
+        <input type="date" name="invoice_date"
+          value="{{ oda.invoice_date or '' }}">
+      </div>
+      <div class="form-group" style="margin:0">
+        <label>Tasso Fattura <span class="text-muted">(BCE — auto)</span></label>
+        <input type="number" name="fx_rate_invoice" step="0.0001"
+          value="{{ '%.4f'|format(oda.fx_rate_invoice) if oda.fx_rate_invoice else '' }}"
+          placeholder="auto da data" style="width:120px">
+      </div>
+      <div class="form-group" style="margin:0">
+        <label>Data Pagamento</label>
+        <input type="date" name="payment_date"
+          value="{{ oda.payment_date or '' }}">
+      </div>
+      <div class="form-group" style="margin:0">
+        <label>Tasso Pagamento <span class="text-muted">(BCE — auto)</span></label>
+        <input type="number" name="fx_rate_payment" step="0.0001"
+          value="{{ '%.4f'|format(oda.fx_rate_payment) if oda.fx_rate_payment else '' }}"
+          placeholder="auto da data" style="width:120px">
+      </div>
+      <button type="submit" class="btn btn-primary btn-sm">Salva Cambi</button>
+    </form>
+    {% if oda.fx_rate_invoice and oda.fx_rate_payment %}
+    <div style="margin-top:12px;font-size:13px;color:var(--text-secondary)">
+      Gain/Loss cambio stimato:
+      <strong style="color:{{ 'var(--green)' if oda.fx_rate_payment < oda.fx_rate_invoice else 'var(--red)' }}">
+        {% set diff = (1/oda.fx_rate_payment - 1/oda.fx_rate_invoice) * oda.price_usd_per_mt * oda.total_mt %}
+        {{ '%.0f'|format(diff) }} EUR
+      </strong>
+      ({{ 'favorevole' if oda.fx_rate_payment < oda.fx_rate_invoice else 'sfavorevole' }})
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+
 {# ── ODA Delivery Lines (commercial schedule) ── #}
 <div class="card" style="margin-bottom:20px">
   <div class="card-header"><span class="card-title">Delivery Schedule (ODA Lines)</span></div>

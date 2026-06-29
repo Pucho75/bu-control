@@ -1400,6 +1400,43 @@ def container_delete(container_id):
     return redirect(request.referrer or url_for("oda_status"))
 
 
+
+# ── ODA FX Rate Update ────────────────────────────────────────
+@app.route("/odas/<int:oda_id>/fx", methods=["POST"])
+@login_required
+@role_required("CEO", "BU_DIRECTOR", "LOGISTICS_ADMIN")
+def oda_fx_update(oda_id):
+    from cost_utils import fetch_ecb_rate
+    db = get_db()
+
+    invoice_date = request.form.get("invoice_date") or None
+    payment_date = request.form.get("payment_date") or None
+
+    # Auto-fetch BCE rates if dates provided and rate not manually overridden
+    fx_invoice = float(request.form.get("fx_rate_invoice") or 0) or None
+    fx_payment = float(request.form.get("fx_rate_payment") or 0) or None
+
+    if invoice_date and not fx_invoice:
+        fx_invoice = fetch_ecb_rate(invoice_date)
+    if payment_date and not fx_payment:
+        fx_payment = fetch_ecb_rate(payment_date)
+
+    db.execute("""
+        UPDATE odas SET invoice_date=?, fx_rate_invoice=?,
+        payment_date=?, fx_rate_payment=?,
+        updated_at=datetime('now') WHERE id=?
+    """, (invoice_date, fx_invoice, payment_date, fx_payment, oda_id))
+    db.commit()
+
+    msg = "Tassi di cambio aggiornati."
+    if fx_invoice:
+        msg += f" Fattura: {fx_invoice:.4f}"
+    if fx_payment:
+        msg += f" | Pagamento: {fx_payment:.4f}"
+    flash(msg, "success")
+    return redirect(url_for("oda_detail", oda_id=oda_id))
+
+
 # ── Entry point ──────────────────────────────────────────────
 if __name__ == "__main__":
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)

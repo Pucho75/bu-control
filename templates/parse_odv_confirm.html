@@ -95,7 +95,7 @@
             <th class="num">MT</th>
             <th class="num">Price €/MT</th>
             <th class="num">Price USD/MT</th>
-            <th class="num">FX Rate</th>
+
             <th>Delivery Date</th>
             <th>Destination</th>
           </tr>
@@ -136,10 +136,7 @@
                 value="{{ line.price_per_mt if extracted.currency == 'USD' else 0 }}"
                 style="width:90px;text-align:right">
             </td>
-            <td class="num">
-              <input type="number" name="exchange_rate_{{ n }}" step="0.0001"
-                placeholder="e.g. 1.0823" style="width:90px;text-align:right">
-            </td>
+
             <td>
               <input type="date" name="delivery_date_{{ n }}" value="{{ line.delivery_date or '' }}">
             </td>

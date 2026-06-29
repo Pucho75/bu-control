@@ -72,3 +72,32 @@ def compute_dazio_eur_per_mt(dc_row, purchase_price_eur_per_mt):
         return round((dazio / 100.0) * (purchase_price_eur_per_mt or 0), 4)
     else:  # EUR_MT
         return round(dazio, 4)
+
+
+def fetch_ecb_rate(date_str):
+    """Fetch EUR/USD rate from ECB for a given date (YYYY-MM-DD).
+    Returns float rate or None if not available (weekend/holiday).
+    Falls back to nearest previous business day if no rate found."""
+    import urllib.request, csv, io, datetime
+
+    def _fetch(d):
+        url = (f"https://data-api.ecb.europa.eu/service/data/EXR/"
+               f"D.USD.EUR.SP00.A?startPeriod={d}&endPeriod={d}&format=csvdata")
+        try:
+            with urllib.request.urlopen(url, timeout=5) as r:
+                text = r.read().decode()
+            reader = csv.DictReader(io.StringIO(text))
+            for row in reader:
+                if row.get("OBS_VALUE"):
+                    return float(row["OBS_VALUE"])
+        except:
+            pass
+        return None
+
+    # Try requested date, then go back up to 5 days for weekends/holidays
+    dt = datetime.date.fromisoformat(date_str)
+    for i in range(5):
+        rate = _fetch((dt - datetime.timedelta(days=i)).isoformat())
+        if rate:
+            return rate
+    return None
