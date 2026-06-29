@@ -660,18 +660,39 @@ def import_reference():
                 dazio = None
                 dazio_type = "PCT"
 
-            db.execute("""
-                INSERT INTO delivery_costs
-                    (product_id, supplier_id, paese, valid_from,
-                     log_in, commission, porto,
-                     dazio, dazio_type, log_ita, stoccaggio, source)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
-            """, (
-                product_id, supplier_id, paese, valid_from,
-                log_in, commission, porto,
-                dazio, dazio_type, log_ita, stoccaggio,
-                "EXCEL_IMPORT"
-            ))
+            # Check if row already exists — update if so, insert if not
+            existing = db.execute("""
+                SELECT id FROM delivery_costs
+                WHERE (product_id IS ? OR (product_id IS NULL AND ? IS NULL))
+                  AND (supplier_id IS ? OR (supplier_id IS NULL AND ? IS NULL))
+                  AND (paese IS ? OR (paese IS NULL AND ? IS NULL))
+                  AND valid_from = ?
+            """, (product_id, product_id, supplier_id, supplier_id,
+                  paese, paese, valid_from)).fetchone()
+
+            if existing:
+                db.execute("""
+                    UPDATE delivery_costs SET
+                        log_in=?, commission=?, porto=?,
+                        dazio=?, dazio_type=?, log_ita=?, stoccaggio=?,
+                        source='EXCEL_IMPORT', updated_at=datetime('now')
+                    WHERE id=?
+                """, (log_in, commission, porto,
+                      dazio, dazio_type, log_ita, stoccaggio,
+                      existing["id"]))
+            else:
+                db.execute("""
+                    INSERT INTO delivery_costs
+                        (product_id, supplier_id, paese, valid_from,
+                         log_in, commission, porto,
+                         dazio, dazio_type, log_ita, stoccaggio, source)
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+                """, (
+                    product_id, supplier_id, paese, valid_from,
+                    log_in, commission, porto,
+                    dazio, dazio_type, log_ita, stoccaggio,
+                    "EXCEL_IMPORT"
+                ))
             n += 1
         counts["del_costs"] = n
 
