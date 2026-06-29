@@ -22,3 +22,4 @@ parser/
 db/bu_control.db-shm
 db/bu_control.db-wal
 backups/
+uploads/
