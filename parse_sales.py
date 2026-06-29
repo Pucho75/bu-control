@@ -666,10 +666,13 @@ def parse_sales_ddt_confirm():
 
         sale_price = sale["price_eur_per_mt"] or 0
         num_rows   = int(form.get(f"alloc_num_rows_{idx+1}") or form.get("alloc_num_rows") or 0)
+        import sys
+        print(f"DEBUG sale_id={sale_id} idx={idx} num_rows={num_rows}", file=sys.stderr)
+        print(f"DEBUG form keys: {[k for k in form.keys() if 'alloc' in k]}", file=sys.stderr)
         lots_assigned = []
 
         for j in range(num_rows):
-            prefix = f"alloc_" if len(sale_ids) == 1 else f"alloc_{idx+1}_"
+            prefix = f"alloc_{idx+1}_"
             cid         = form.get(f"{prefix}container_id_{j}")
             shipment_id = form.get(f"{prefix}shipment_id_{j}")
             lot         = form.get(f"{prefix}lot_{j}", "")
@@ -709,7 +712,12 @@ def parse_sales_ddt_confirm():
         all_lots.extend(lots_assigned)
         executed_codes.append(sale["sale_code"])
 
-    db.commit()
+    try:
+        db.commit()
+    except Exception as e:
+        import sys
+        print(f"DEBUG COMMIT ERROR: {e}", file=sys.stderr)
+        raise
     session.pop("sales_ddt_draft", None)
     msg = f"DDT {ddt_number} — {len(executed_codes)} sale(s) EXECUTED: {', '.join(executed_codes)}."
     if all_lots:

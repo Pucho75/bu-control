@@ -155,20 +155,21 @@ def sheet_del_costs(wb):
         "Supplier Name",      # B
         "Country (paese)",    # C
         "Valid From",         # D  ISO date YYYY-MM-DD
-        "Log In €/MT",        # E  inbound logistics proxy
-        "Commission €/MT",    # F
-        "Porto €/MT",         # G  port cost
-        "Dazio %",            # H  customs duty — PCT mode
-        "Dazio €/MT",         # I  customs duty — EUR_MT mode (use one OR the other)
-        "Log ITA €/ctr",      # J  Italian logistics per container
-        "Stoccaggio €/MT",    # K  storage cost flat per MT
+        "T1/T2",              # E  customs regime (T1=non-EU, T2=EU)
+        "Log In €/MT",        # F  inbound logistics proxy
+        "Commission €/MT",    # G
+        "Porto €/MT",         # H  port cost
+        "Dazio %",            # I  customs duty — PCT mode (0 for T2)
+        "Dazio €/MT",         # J  customs duty — EUR_MT mode (use one OR the other)
+        "Log ITA €/ctr",      # K  Italian logistics per container
+        "Stoccaggio €/MT",    # L  storage cost flat per MT
     ]
     for col, h in enumerate(headers, 1):
         ws.cell(2, col, h)
     style_header(ws, 2, len(headers))
 
     # Example row
-    ex = ["ESO", "ACME Chemicals SA", "AR", "2026-01-01",
+    ex = ["ESO", "ACME Chemicals SA", "AR", "2026-01-01", "T1",
           15.0, 3.0, None, 6.5, None, 180.0, 8.0]
     for col, v in enumerate(ex, 1):
         ws.cell(3, col, v)
@@ -180,11 +181,12 @@ def sheet_del_costs(wb):
         "Must match Suppliers sheet name (or leave blank = all suppliers)",
         "2-letter ISO (or blank = all countries)",
         "YYYY-MM-DD — new row for each rate change",
+        "T1 = non-EU origin (duty may apply) | T2 = EU origin (duty = 0)",
         "Inbound freight proxy €/MT (FOB/EXW)",
         "Trading commission €/MT",
         "Port handling €/MT (if applicable)",
-        "Duty as % of purchase price — e.g. 6.5 means 6.5%",
-        "Duty as flat €/MT — fill EITHER col H or col I, not both",
+        "Duty as % of purchase price — e.g. 6.5 means 6.5% | 0 for T2",
+        "Duty as flat €/MT — fill EITHER col I or col J, not both",
         "Italian road transport to depot €/container",
         "Storage cost €/MT (flat, one-time)",
     ]
@@ -194,7 +196,7 @@ def sheet_del_costs(wb):
         c.alignment = Alignment(wrap_text=True)
     ws.row_dimensions[4].height = 36
 
-    set_col_widths(ws, [16, 30, 14, 14, 12, 14, 10, 10, 10, 14, 14])
+    set_col_widths(ws, [16, 30, 14, 14, 8, 12, 14, 10, 10, 10, 14, 14])
     freeze(ws)
 
 # ── TRANSPORT_MATRIX ─────────────────────────────────────────

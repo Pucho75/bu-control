@@ -621,16 +621,17 @@ def import_reference():
             if not valid_from:
                 continue  # skip example row, notes row, empty rows
 
-            product_code  = str(row[0].value).strip().upper() if row[0].value else None
-            supplier_name = str(row[1].value).strip()         if row[1].value else None
-            paese         = str(row[2].value).strip().upper() if row[2].value else None
-            log_in        = safe_float(row[4].value)
-            commission    = safe_float(row[5].value)
-            porto         = safe_float(row[6].value)
-            dazio_pct     = safe_float(row[7].value)
-            dazio_eur     = safe_float(row[8].value)
-            log_ita       = safe_float(row[9].value)
-            stoccaggio    = safe_float(row[10].value)
+            product_code       = str(row[0].value).strip().upper() if row[0].value else None
+            supplier_name      = str(row[1].value).strip()         if row[1].value else None
+            paese              = str(row[2].value).strip().upper() if row[2].value else None
+            customs_regime_val = str(row[4].value).strip().upper() if row[4].value else None
+            log_in             = safe_float(row[5].value)
+            commission         = safe_float(row[6].value)
+            porto              = safe_float(row[7].value)
+            dazio_pct          = safe_float(row[8].value)
+            dazio_eur          = safe_float(row[9].value)
+            log_ita            = safe_float(row[10].value)
+            stoccaggio         = safe_float(row[11].value)
 
             product_id = None
             if product_code:
@@ -641,6 +642,13 @@ def import_reference():
             if supplier_name:
                 s = db.execute("SELECT id FROM suppliers WHERE name=?", (supplier_name,)).fetchone()
                 supplier_id = s["id"] if s else None
+                if supplier_id and customs_regime_val in ("T1", "T2"):
+                    db.execute("UPDATE suppliers SET customs_regime=? WHERE id=?",
+                               (customs_regime_val, supplier_id))
+                # Update supplier customs_regime if provided
+                if supplier_id and customs_regime_val in ("T1", "T2"):
+                    db.execute("UPDATE suppliers SET customs_regime=? WHERE id=?",
+                               (customs_regime_val, supplier_id))
 
             if dazio_pct is not None:
                 dazio = dazio_pct
