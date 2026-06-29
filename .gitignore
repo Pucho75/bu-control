@@ -21,3 +21,4 @@ parse_ap.py
 parser/
 db/bu_control.db-shm
 db/bu_control.db-wal
+backups/
