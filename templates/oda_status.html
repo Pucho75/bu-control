@@ -52,10 +52,10 @@
     <table>
       <thead>
         <tr>
-          <th>ODA</th>
+          <th><a href="?{{ request.query_string.decode() }}&sort=code_asc" style="color:inherit">ODA ↕</a></th>
           <th>Supplier</th>
           <th>Product</th>
-          <th>Date</th>
+          <th><a href="?{{ request.query_string.decode() }}&sort={{ 'date_asc' if filters.sort == 'date_desc' else 'date_desc' }}" style="color:inherit">Date ↕</a></th>
           <th>Exp. Month</th>
           <th class="num">Total MT</th>
           {% if can('sees_prices') %}

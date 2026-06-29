@@ -599,6 +599,7 @@ def oda_status():
         "product_id":  request.args.get("product_id", ""),
         "supplier_id": request.args.get("supplier_id", ""),
         "status":      request.args.get("status", ""),
+        "sort":        request.args.get("sort", "date_desc"),
     }
 
     where = ["o.is_deleted=0"]
@@ -631,8 +632,13 @@ def oda_status():
         LEFT JOIN containers c ON c.shipment_id = sh.id AND c.is_deleted=0
         WHERE {' AND '.join(where)}
         GROUP BY o.id
-        ORDER BY o.order_date DESC
-    """, params).fetchall()
+        ORDER BY
+            CASE WHEN :sort = 'date_asc'  THEN o.order_date END ASC,
+            CASE WHEN :sort = 'date_desc' THEN o.order_date END DESC,
+            CASE WHEN :sort = 'code_asc'  THEN o.oda_code   END ASC,
+            CASE WHEN :sort = 'code_desc' THEN o.oda_code   END DESC,
+            o.order_date DESC
+    """, {**dict(zip(['?']*len(params), params)), 'sort': filters['sort']}).fetchall()
 
     # Apply status filter after aggregation
     if filters["status"] == "open":
@@ -1207,7 +1213,10 @@ def storage_value():
             sf.name         AS facility_name,
             p.code          AS product_code,
             o.oda_code,
-            o.price_eur_per_mt AS purchase_price,
+            o.price_eur_per_mt AS purchase_price_eur,
+            o.price_usd_per_mt AS purchase_price_usd,
+            o.currency,
+            s.fx_rate_invoice,
             o.supplier_id,
             o.product_id,
             o.paese,
@@ -1245,8 +1254,15 @@ def storage_value():
         log_in      = dc.get("log_in") or 0.0 if dc else 0.0
         stoccaggio  = dc.get("stoccaggio") or 0.0 if dc else 0.0
 
+        # Compute EUR purchase price using fx_rate_invoice for USD ODAs
+        if r.get("currency") == "USD" and r.get("purchase_price_usd") and r.get("fx_rate_invoice"):
+            purchase_price = round(r["purchase_price_usd"] / r["fx_rate_invoice"], 4)
+        else:
+            purchase_price = r.get("purchase_price_eur") or r.get("purchase_price") or 0
+        r["purchase_price"] = purchase_price
+
         cost_per_mt = (
-            (r["purchase_price"] or 0)
+            purchase_price
             + commission + log_in + stoccaggio
             + (r["customs_per_mt"] or 0)
             + (r["transp_st_per_mt"] or 0)
@@ -1435,6 +1451,41 @@ def oda_fx_update(oda_id):
         msg += f" | Pagamento: {fx_payment:.4f}"
     flash(msg, "success")
     return redirect(url_for("oda_detail", oda_id=oda_id))
+
+
+
+# ── Shipment FX Rate Update ───────────────────────────────────
+@app.route("/shipments/<int:shipment_id>/fx", methods=["POST"])
+@login_required
+@role_required("CEO", "BU_DIRECTOR", "LOGISTICS_ADMIN")
+def shipment_fx_update(shipment_id):
+    from cost_utils import fetch_ecb_rate
+    db = get_db()
+
+    invoice_date = request.form.get("invoice_date") or None
+    payment_date = request.form.get("payment_date") or None
+    fx_invoice   = float(request.form.get("fx_rate_invoice") or 0) or None
+    fx_payment   = float(request.form.get("fx_rate_payment") or 0) or None
+
+    if invoice_date and not fx_invoice:
+        fx_invoice = fetch_ecb_rate(invoice_date)
+    if payment_date and not fx_payment:
+        fx_payment = fetch_ecb_rate(payment_date)
+
+    db.execute("""
+        UPDATE shipments SET invoice_date=?, fx_rate_invoice=?,
+        payment_date=?, fx_rate_payment=?, updated_at=datetime('now')
+        WHERE id=?
+    """, (invoice_date, fx_invoice, payment_date, fx_payment, shipment_id))
+    db.commit()
+
+    # Get oda_id to redirect back
+    s = db.execute("SELECT oda_id FROM shipments WHERE id=?", (shipment_id,)).fetchone()
+    msg = "Cambi aggiornati."
+    if fx_invoice: msg += f" Fattura: {fx_invoice:.4f}"
+    if fx_payment: msg += f" | Pagamento: {fx_payment:.4f}"
+    flash(msg, "success")
+    return redirect(url_for("oda_detail", oda_id=s["oda_id"]))
 
 
 # ── Entry point ──────────────────────────────────────────────

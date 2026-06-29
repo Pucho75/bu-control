@@ -627,19 +627,20 @@ def parse_bl_confirm():
                 ) VALUES (?,?,?,?,'IN_TRANSIT','BL_PARSER')
             """, (code, shipment_id, ctype, nominal_mt))
 
-    # Fetch BCE rate for B/L date and save as provisional fx_rate_invoice on ODA
+    # Fetch BCE rate for B/L date and save as provisional fx_rate_invoice on shipment
     bl_date = form.get("bl_date")
     if bl_date:
         try:
             from cost_utils import fetch_ecb_rate
-            oda = db.execute("SELECT currency, fx_rate_invoice FROM odas WHERE id=?", (oda_id,)).fetchone()
-            if oda and oda["currency"] == "USD" and not oda["fx_rate_invoice"]:
+            oda = db.execute("SELECT currency FROM odas WHERE id=?", (oda_id,)).fetchone()
+            if oda and oda["currency"] == "USD":
                 rate = fetch_ecb_rate(bl_date)
                 if rate:
-                    db.execute("UPDATE odas SET fx_rate_invoice=? WHERE id=?", (rate, oda_id))
+                    db.execute("UPDATE shipments SET fx_rate_invoice=? WHERE id=?",
+                               (rate, shipment_id))
                     db.commit()
         except Exception as e:
-            pass  # Non-blocking — don't fail import if BCE is down
+            pass  # Non-blocking
 
     db.commit()
     session.pop("bl_draft", None)
