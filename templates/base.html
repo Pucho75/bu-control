@@ -94,7 +94,7 @@
       </li>
       {% endif %}
 
-      {% if current_role in ['CEO', 'LOGISTICS_ADMIN'] %}
+      {% if current_role in ['CEO', 'LOGISTICS_ADMIN', 'BU_DIRECTOR'] %}
       <li class="nav-item {% if request.endpoint == 'pending' %}active{% endif %}">
         <a href="{{ url_for('pending') }}">
           <span class="nav-icon">◉</span> Pending
@@ -105,7 +105,7 @@
       </li>
       {% endif %}
 
-      {% if current_role in ['CEO', 'LOGISTICS_ADMIN', 'LOGISTICS'] %}
+      {% if current_role in ['CEO', 'LOGISTICS_ADMIN', 'LOGISTICS', 'BU_DIRECTOR'] %}
       <li class="nav-section-title" style="padding:16px 16px 4px;font-size:10px;letter-spacing:.1em;color:var(--text-secondary);text-transform:uppercase">Import</li>
       <li class="nav-item {% if request.endpoint == 'parse_docs.parse_oda' %}active{% endif %}">
         <a href="{{ url_for('parse_docs.parse_oda') }}"><span class="nav-icon">↑</span> ODA</a>

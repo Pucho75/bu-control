@@ -70,6 +70,34 @@
         <div class="metric-value neutral">{{ "%.0f"|format(margin_summary.sold_mt or 0) }}</div>
       </div>
     </div>
+    {% if margin_by_product %}
+    <div class="card-body-flush table-wrap" style="border-top:1px solid var(--border)">
+      <table>
+        <thead>
+          <tr>
+            <th>Product</th>
+            <th class="num">MT Sold</th>
+            <th class="num">€/MT</th>
+            <th class="num">Total €</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for m in margin_by_product %}
+          <tr>
+            <td class="mono">{{ m.product_code }}</td>
+            <td class="num">{{ "%.2f"|format(m.sold_mt or 0) }}</td>
+            <td class="num {% if m.realized_per_mt > 0 %}positive{% endif %}">
+              {{ "%.2f"|format(m.realized_per_mt or 0) }}
+            </td>
+            <td class="num {% if m.realized_total > 0 %}positive{% endif %}">
+              {{ "{:,.0f}".format(m.realized_total or 0) }}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
   </div>
   {% endif %}
 

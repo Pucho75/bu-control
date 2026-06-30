@@ -250,6 +250,7 @@ def dashboard():
 
     # Margin summary (CEO / BU_DIRECTOR only)
     margin_summary = None
+    margin_by_product = []
     if can("sees_margins"):
         margin_summary = db.execute("""
             SELECT
@@ -262,6 +263,22 @@ def dashboard():
             JOIN sales sa ON sa.id = sl.sale_id
             WHERE strftime('%Y', sa.provisional_date) = strftime('%Y', 'now')
         """).fetchone()
+
+        margin_by_product = db.execute("""
+            SELECT
+                p.code AS product_code,
+                COALESCE(SUM(sl.margin_eur_total), 0) AS realized_total,
+                COALESCE(SUM(sl.mt_drawn), 0) AS sold_mt,
+                CASE WHEN COALESCE(SUM(sl.mt_drawn),0) > 0
+                     THEN SUM(sl.margin_eur_total) / SUM(sl.mt_drawn)
+                     ELSE 0 END AS realized_per_mt
+            FROM sale_lots sl
+            JOIN sales sa ON sa.id = sl.sale_id
+            JOIN products p ON p.id = sa.product_id
+            WHERE strftime('%Y', sa.provisional_date) = strftime('%Y', 'now')
+            GROUP BY p.id
+            ORDER BY p.code
+        """).fetchall()
 
     # Inbound — next 30 days
     inbound = db.execute("""
@@ -345,6 +362,7 @@ def dashboard():
     return render_template("dashboard.html",
         positions=positions,
         margin_summary=margin_summary,
+        margin_by_product=margin_by_product if can("sees_margins") else [],
         inbound=inbound,
         outbound=outbound,
         storage=storage,
