@@ -40,7 +40,7 @@
         <div class="form-group">
           <label>Select Vessel / Containers</label>
           {% for vessel_key, ctrs in vessels_map.items() %}
-          <div style="margin-bottom:12px">
+          <div style="margin-bottom:12px" class="vessel-group">
             <div style="font-size:12px;font-weight:500;color:var(--text-secondary);margin-bottom:6px;font-family:var(--font-mono)">
               {{ vessel_key }}
               <label style="margin-left:8px;font-weight:normal;cursor:pointer;font-family:var(--font-sans)">
@@ -80,7 +80,7 @@
 {% block scripts %}
 <script>
 function toggleGroup(cb) {
-  const group = cb.closest('div');
+  const group = cb.closest('.vessel-group');
   group.querySelectorAll('.group-ctr').forEach(c => c.checked = cb.checked);
 }
 </script>
