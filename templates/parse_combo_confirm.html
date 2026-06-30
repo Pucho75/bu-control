@@ -1,0 +1,186 @@
+{% extends "base.html" %}
+{% block title %}Confirm Combo Import{% endblock %}
+{% block page_title %}Confirm Combo Import{% endblock %}
+
+{% block main_content %}
+<form method="POST" action="{{ url_for('combo.parse_combo_confirm') }}">
+
+  <div class="card" style="margin-bottom:20px">
+    <div class="card-header"><span class="card-title">1. ODA</span>
+      <span class="text-muted" style="font-size:12px">{{ results.oda._filename }}</span></div>
+    <div class="card-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label>ODA Number</label>
+          <input type="text" name="oda_number" value="{{ results.oda.oda_number or '' }}" required>
+        </div>
+        <div class="form-group">
+          <label>ODA Date</label>
+          <input type="date" name="oda_date" value="{{ results.oda.oda_date or '' }}" required>
+        </div>
+        <div class="form-group">
+          <label>Currency</label>
+          <select name="currency">
+            <option value="EUR" {% if results.oda.currency == 'EUR' %}selected{% endif %}>EUR</option>
+            <option value="USD" {% if results.oda.currency == 'USD' %}selected{% endif %}>USD</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group" style="flex:1">
+          <label>Supplier</label>
+          <select name="supplier_id">
+            <option value="">— create new —</option>
+            {% for s in suppliers %}
+            <option value="{{ s.id }}" {% if matched_supplier_id == s.id %}selected{% endif %}>{{ s.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group" style="flex:1">
+          <label>Supplier Name (if new)</label>
+          <input type="text" name="supplier_name" value="{{ results.oda.supplier_name or '' }}">
+        </div>
+        <div class="form-group">
+          <label>Country</label>
+          <input type="text" name="supplier_country" value="{{ results.oda.supplier_country or '' }}" maxlength="2" style="width:70px">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group" style="flex:1">
+          <label>Product</label>
+          <select name="product_id" required>
+            <option value="">— select —</option>
+            {% for p in products %}
+            <option value="{{ p.id }}" {% if matched_product_id == p.id %}selected{% endif %}>{{ p.code }} — {{ p.name }}</option>
+            {% endfor %}
+          </select>
+          {% if extracted_desc %}<div style="font-size:11px;color:var(--text-secondary);margin-top:3px">Extracted: {{ extracted_desc }}</div>{% endif %}
+        </div>
+        <div class="form-group">
+          <label>Incoterm</label>
+          <input type="text" name="incoterm" value="{{ results.oda.incoterm or '' }}" style="width:100px">
+        </div>
+        <div class="form-group">
+          <label>Location</label>
+          <input type="text" name="incoterm_location" value="{{ results.oda.incoterm_location or '' }}">
+        </div>
+        <div class="form-group">
+          <label>T1/T2</label>
+          <select name="customs_regime">
+            <option value="">—</option>
+            <option value="T1" {% if results.oda.customs_regime == 'T1' %}selected{% endif %}>T1</option>
+            <option value="T2" {% if results.oda.customs_regime == 'T2' %}selected{% endif %}>T2</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Total MT</label>
+          <input type="number" name="total_mt" step="0.001"
+            value="{{ results.oda.shipments|map(attribute='mt_planned')|select('number')|sum if results.oda.shipments else '' }}" required>
+        </div>
+        <div class="form-group">
+          <label>Price €/MT</label>
+          <input type="number" name="price_eur" step="0.01"
+            value="{{ results.oda.shipments[0].price_per_mt if results.oda.shipments and results.oda.currency == 'EUR' else 0 }}">
+        </div>
+        <div class="form-group">
+          <label>Price USD/MT</label>
+          <input type="number" name="price_usd" step="0.01"
+            value="{{ results.oda.shipments[0].price_per_mt if results.oda.shipments and results.oda.currency == 'USD' else 0 }}">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:20px">
+    <div class="card-header"><span class="card-title">2. B/L</span>
+      <span class="text-muted" style="font-size:12px">{{ results.bl._filename }}</span></div>
+    <div class="card-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label>B/L Number</label>
+          <input type="text" name="bl_number" value="{{ results.bl.bl_number or '' }}" required>
+        </div>
+        <div class="form-group">
+          <label>On Board Date</label>
+          <input type="date" name="bl_date" value="{{ results.bl.bl_date or '' }}" required>
+        </div>
+        <div class="form-group">
+          <label>Vessel</label>
+          <input type="text" name="vessel_name" value="{{ results.bl.vessel_name or '' }}">
+        </div>
+        <div class="form-group">
+          <label>Voyage</label>
+          <input type="text" name="voyage_ref" value="{{ results.bl.voyage_ref or '' }}">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Port of Loading</label>
+          <input type="text" name="port_of_loading" value="{{ results.bl.port_of_loading or '' }}">
+        </div>
+        <div class="form-group">
+          <label>Port of Discharge</label>
+          <input type="text" name="port_of_discharge" value="{{ results.bl.port_of_discharge or '' }}">
+        </div>
+      </div>
+      <div class="card-body-flush table-wrap" style="margin-top:12px">
+        <table>
+          <thead><tr><th>#</th><th>Container Code</th><th>Type</th><th class="num">Nominal MT</th></tr></thead>
+          <tbody>
+            {% for i, c in results.bl.containers|default([])|enumerate %}
+            {% set n = i + 1 %}
+            <tr>
+              <td class="mono">{{ n }}</td>
+              <td><input type="text" name="container_code_{{ n }}" value="{{ c.container_code or '' }}"
+                style="font-family:var(--font-mono);text-transform:uppercase;width:140px"></td>
+              <td>
+                <select name="container_type_{{ n }}">
+                  <option value="ISOTANK" {% if c.container_type == 'ISOTANK' %}selected{% endif %}>ISOTANK</option>
+                  <option value="ONE_TON_CUBE" {% if c.container_type == 'ONE_TON_CUBE' %}selected{% endif %}>IBC</option>
+                  <option value="FLEXIBAG" {% if c.container_type == 'FLEXIBAG' %}selected{% endif %}>FLEXIBAG</option>
+                </select>
+              </td>
+              <td class="num"><input type="number" name="nominal_mt_{{ n }}" step="0.001" value="{{ c.nominal_mt or 23 }}" style="width:90px;text-align:right"></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <input type="hidden" name="num_containers" value="{{ results.bl.containers|default([])|length }}">
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:20px">
+    <div class="card-header"><span class="card-title">3. COA</span>
+      <span class="text-muted" style="font-size:12px">{{ results.coa._filename }}</span></div>
+    <div class="card-body">
+      <input type="hidden" name="coa_saved_filename" value="{{ results.coa._saved_filename or '' }}">
+      <input type="hidden" name="coa_original_name" value="{{ results.coa._filename or '' }}">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Production Lot</label>
+          <input type="text" name="production_lot" value="{{ results.coa.production_batch or '' }}" style="font-family:var(--font-mono)">
+        </div>
+        <div class="form-group">
+          <label>Manufacture Date</label>
+          <input type="date" name="manufacture_date" value="{{ results.coa.manufacture_date or '' }}">
+        </div>
+        <div class="form-group">
+          <label>Expiration Date</label>
+          <input type="date" name="expiration_date" value="{{ results.coa.expiration_date or '' }}">
+        </div>
+      </div>
+      <div style="font-size:12px;color:var(--text-secondary);margin-top:8px">
+        This lot will be applied to all containers created from the B/L above.
+      </div>
+    </div>
+  </div>
+
+  <div class="form-actions">
+    <a href="{{ url_for('combo.parse_combo') }}" class="btn btn-ghost">← Re-upload</a>
+    <button type="submit" class="btn btn-primary">Confirm & Save All</button>
+  </div>
+</form>
+{% endblock %}

@@ -271,7 +271,25 @@ def parse_odv_confirm():
         price_usd = float(form.get(f"price_usd_{i}") or form.get("price_usd") or 0) or None
         exch_rate = float(form.get(f"exchange_rate_{i}") or form.get("exchange_rate") or 0) or None
 
-        sale_code = next_sale_code(db)
+        odv_number = form.get("odv_number", "").strip()
+        # Use real ODV number as sale_code. If multi-line, append line suffix for uniqueness.
+        base_code = odv_number if odv_number else next_sale_code(db)
+        sale_code = base_code if num_lines == 1 else f"{base_code}-L{i}"
+
+        # Check for existing sale with this odv_ref + product + line to avoid duplicates
+        dup = db.execute("""
+            SELECT id FROM sales
+            WHERE odv_ref=? AND product_id=? AND is_deleted=0
+        """, (odv_number, line_product_id)).fetchone()
+        if dup:
+            flash(f"Line {i}: ODV {odv_number} for this product already exists (sale #{dup['id']}) — skipped.", "warning")
+            continue
+
+        # Ensure sale_code uniqueness even if reused
+        code_exists = db.execute("SELECT id FROM sales WHERE sale_code=?", (sale_code,)).fetchone()
+        if code_exists:
+            sale_code = f"{sale_code}-{datetime.now().strftime('%H%M%S')}"
+
         db.execute("""
             INSERT INTO sales (
                 sale_code, customer_id, product_id, destination,
@@ -293,7 +311,7 @@ def parse_odv_confirm():
             form.get(f"delivery_date_{i}") or form.get("odv_date") or datetime.now().strftime("%Y-%m-%d"),
             float(mt),
             session.get("username", "B"),
-            form.get("odv_number"),
+            odv_number,
             "PROVISIONAL",
             "ODV_PARSER",
         ))

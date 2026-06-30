@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Combo Import{% endblock %}
+{% block page_title %}Combo Import — ODA + B/L + COA{% endblock %}
+
+{% block main_content %}
+<div class="card">
+  <div class="card-header">
+    <span class="card-title">Upload all 3 documents together</span>
+  </div>
+  <div class="card-body">
+    <p style="font-size:13px;color:var(--text-secondary);margin-bottom:20px">
+      Upload the ODA, B/L, and COA for the same shipment. The system will extract all three
+      and link them automatically. You'll review everything on one confirm screen before saving.
+    </p>
+    <form method="POST" enctype="multipart/form-data">
+      <div class="form-group">
+        <label>1. ODA (Purchase Order)</label>
+        <input type="file" name="oda_file" accept=".pdf,.png,.jpg,.jpeg" required>
+      </div>
+      <div class="form-group">
+        <label>2. B/L (Bill of Lading)</label>
+        <input type="file" name="bl_file" accept=".pdf,.png,.jpg,.jpeg" required>
+      </div>
+      <div class="form-group">
+        <label>3. COA (Certificate of Analysis)</label>
+        <input type="file" name="coa_file" accept=".pdf,.png,.jpg,.jpeg" required>
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Extract All & Review</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

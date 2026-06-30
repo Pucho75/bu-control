@@ -107,6 +107,9 @@
 
       {% if current_role in ['CEO', 'LOGISTICS_ADMIN', 'LOGISTICS', 'BU_DIRECTOR'] %}
       <li class="nav-section-title" style="padding:16px 16px 4px;font-size:10px;letter-spacing:.1em;color:var(--text-secondary);text-transform:uppercase">Import</li>
+      <li class="nav-item {% if request.endpoint == 'combo.parse_combo' %}active{% endif %}">
+        <a href="{{ url_for('combo.parse_combo') }}"><span class="nav-icon">⚡</span> Combo (ODA+B/L+COA)</a>
+      </li>
       <li class="nav-item {% if request.endpoint == 'parse_docs.parse_oda' %}active{% endif %}">
         <a href="{{ url_for('parse_docs.parse_oda') }}"><span class="nav-icon">↑</span> ODA</a>
       </li>
