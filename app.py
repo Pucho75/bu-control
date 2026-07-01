@@ -43,6 +43,9 @@ app.register_blueprint(arrival_bp)
 from parse_sales import sales_parse_bp
 app.register_blueprint(sales_parse_bp)
 
+from bug_reports import bug_reports_bp
+app.register_blueprint(bug_reports_bp)
+
 from combo_import import combo_bp
 app.register_blueprint(combo_bp)
 

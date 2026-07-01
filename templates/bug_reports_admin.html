@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block main_content %}
+<h2>Segnalazioni</h2>
+<table style="width:100%; border-collapse: collapse;">
+  <thead>
+    <tr style="background:#1F3864; color:white;">
+      <th style="padding:8px; text-align:left;">Data</th>
+      <th style="padding:8px; text-align:left;">Utente</th>
+      <th style="padding:8px; text-align:left;">Pagina</th>
+      <th style="padding:8px; text-align:left;">Messaggio</th>
+      <th style="padding:8px; text-align:left;">Stato</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for r in reports %}
+    <tr style="border-bottom:1px solid #ddd; {% if r.status == 'Fixed' %}opacity:0.5;{% endif %}">
+      <td style="padding:8px;">{{ r.created_at }}</td>
+      <td style="padding:8px;">{{ r.username }}</td>
+      <td style="padding:8px;"><a href="{{ r.page_url }}">{{ r.page_url }}</a></td>
+      <td style="padding:8px;">{{ r.message }}</td>
+      <td style="padding:8px;">
+        <select onchange="updateStatus({{ r.id }}, this.value)">
+          <option value="Open" {% if r.status == 'Open' %}selected{% endif %}>Open</option>
+          <option value="In Progress" {% if r.status == 'In Progress' %}selected{% endif %}>In Progress</option>
+          <option value="Fixed" {% if r.status == 'Fixed' %}selected{% endif %}>Fixed</option>
+        </select>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+<script>
+function updateStatus(id, status) {
+    const fd = new FormData();
+    fd.append('status', status);
+    fetch(`/admin/bug-reports/${id}/status`, { method: 'POST', body: fd });
+}
+</script>
+{% endblock %}
